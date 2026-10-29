@@ -151,6 +151,7 @@ class VoiceSettingsPanel(tk.Frame):
         mine = self.app.cfg.speakers[name]
         sc = fresh_cfg.speakers[name]
         mine.provider, mine.voice_id, mine.settings = sc.provider, sc.voice_id, dict(sc.settings)
+        mine.muted = sc.muted
 
     def save_all_cards(self) -> None:
         # Re-read the file first so keys that exist on disk but not in the UI
@@ -195,6 +196,9 @@ class VoiceSettingsPanel(tk.Frame):
         """Play the test line with the card's *current* values, saved or not."""
         card = self.cards[name]
         saved = self.app.cfg.speakers[name]
+        if saved.muted:
+            self.app.log(f"{name} is muted")
+            return
         voice_id = card.voice_id.get().strip() or (
             saved.voice_id if saved.provider == card.provider else "")
         try:

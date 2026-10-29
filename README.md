@@ -21,6 +21,8 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-qt.txt
 ```
 
+If you update an existing checkout, re-run the `pip install` line above; the app now needs the `keyring` package.
+
 Then add a key for each provider you plan to use (see [API keys](#api-keys)). Only providers assigned in `voices.yaml` need one. On first run the app copies `voices.example.yaml` to `voices.yaml`, which is gitignored; the app only ever rewrites that copy.
 
 | Provider | Variable | Notes |
@@ -33,7 +35,7 @@ Then add a key for each provider you plan to use (see [API keys](#api-keys)). On
 
 In the Qt dashboard press **Providers…**, paste a key into the provider's row, and press **Save and test**. The app saves the key, asks the provider for its voice list to confirm it works, and clears the field; the key is never shown again. **Remove** deletes the saved key.
 
-- **Where keys live:** Windows Credential Manager (service name `agent-tts`), not `voices.yaml`, `.env`, or anything in this folder. Credential Manager is per Windows user, so any program running as you can read it, the same as a `.env` file you own.
+- **Where keys live:** Windows Credential Manager (entries named like `XAI_API_KEY@agent-tts`), not `voices.yaml`, `.env`, or anything in this folder. Credential Manager is per Windows user, so any program running as you can read it, the same as a `.env` file you own.
 - **Precedence:** a key saved in the app is used instead of one from the environment. If no key is saved, the app falls back to the environment variable, including one loaded from `.env` (`XAI_API_KEY`, `ELEVENLABS_API_KEY`, `CARTESIA_API_KEY`; see `.env.example`). The dialog shows which source is active.
 - **Tk dashboard:** it has no key dialog. It still reads keys saved by the Qt dashboard and from `.env`.
 - **ElevenLabs:** the check lists voices, which needs the `voices_read` permission. A key limited to `text_to_speech` is reported as failing the check even though speech works.

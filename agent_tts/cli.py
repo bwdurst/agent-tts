@@ -93,6 +93,9 @@ def _run_file(args, cfg) -> int:
         else:
             sp = cfg.speaker(b.speaker)
 
+        if sp.muted:
+            print(f"[{i}] {b.speaker} (muted)")
+            continue
         print(f"[{i}] {b.speaker} -> synth…", end="", flush=True)
         synth_text = normalize(b.text, b.speaker, cfg.pronunciations)
         audio_path = pool.synth(synth_text, sp)

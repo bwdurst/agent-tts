@@ -1,3 +1,4 @@
+import threading
 import time
 
 import pytest
@@ -81,3 +82,29 @@ def test_empty_key_is_refused(app):
     assert row["result"].text() == "Enter a key first."
     assert credentials.lookup("XAI_API_KEY") is None
     assert describe_failure("xai", requests.Timeout()) == "Provider timed out. Try again."
+
+
+def test_enter_while_a_check_runs_is_ignored_and_late_results_after_remove_are_dropped(app):
+    started, release = threading.Event(), threading.Event()
+    checked = []
+
+    def slow(provider, key):
+        checked.append(key)
+        started.set()
+        release.wait(2)
+        return "Key works (1 voices available)."
+
+    dialog = ProvidersDialog(check=slow)
+    row = dialog._rows["xai"]
+    row["field"].setText("key-a")
+    row["save"].click()
+    assert started.wait(1)
+    row["field"].setText("key-b")
+    row["field"].returnPressed.emit()  # Enter bypasses a disabled button
+    assert credentials.lookup("XAI_API_KEY") == ("key-a", credentials.SAVED)
+    row["remove"].click()
+    release.set()
+    QTest.qWait(100)
+    assert row["result"].text() == "Removed."  # the late "Key works" for the removed key is ignored
+    assert row["save"].isEnabled()
+    assert checked == ["key-a"]

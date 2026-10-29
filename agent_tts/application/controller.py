@@ -30,7 +30,8 @@ def error_message(exc):
     """Do not include HTTP headers, bodies, or signed preview URLs in diagnostics."""
     if isinstance(exc, requests.HTTPError):
         code = exc.response.status_code if exc.response is not None else "unknown"
-        return f"Provider returned HTTP {code}. Check account access and API credentials."
+        hint = " A key saved under Providers is used instead of .env." if code in (401, 403) else ""
+        return f"Provider returned HTTP {code}. Check account access and API credentials.{hint}"
     if isinstance(exc, requests.Timeout):
         return "Provider timed out. Try again."
     if isinstance(exc, requests.RequestException):
@@ -53,6 +54,7 @@ class Controller:
         self._tail_threads = []
         self._jobs = queue.Queue()
         self._catalog_loading = set()
+        self._catalog_stale = set()
         self.catalogs = {}
         self._player = player_factory(on_event=self._player_event)
         self._player_started = False
@@ -75,6 +77,12 @@ class Controller:
             if result.kind in ("catalog", "catalog_error"):
                 provider = result.data[0]
                 self._catalog_loading.discard(provider)
+                if provider in self._catalog_stale:
+                    # Fetched with a key that has since changed: drop it and ask again.
+                    self._catalog_stale.discard(provider)
+                    if not self.closed:
+                        self.fetch_catalog(provider, refresh=True)
+                    return
             if self.closed or result.gen != self.session_gen or (result.cancel and result.cancel.is_set()):
                 if not self.closed and result.kind in ("catalog", "catalog_error"):
                     self.fetch_catalog(provider)
@@ -239,6 +247,14 @@ class Controller:
                 message = f"{name}: {error_message(exc)}"
                 logging.getLogger(__name__).warning(message)
                 self._emit(Result(gen, "error", message))
+
+    def key_changed(self, provider, refetch=True):
+        """Forget the cached voice list after a provider's API key changed."""
+        self.catalogs.pop(provider, None)
+        if provider in self._catalog_loading:
+            self._catalog_stale.add(provider)  # receive() refetches when the old request lands
+        elif refetch:
+            self.fetch_catalog(provider, refresh=True)
 
     def fetch_catalog(self, provider, refresh=False):
         if provider in self._catalog_loading:

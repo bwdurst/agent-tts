@@ -243,3 +243,13 @@ def test_hint_shown_when_no_provider_has_a_key(window, monkeypatch):
         monkeypatch.delenv(var, raising=False)
     window._update_key_hint()
     assert "Providers" in window.status.text()
+
+
+def test_hint_clears_once_a_provider_is_active(window, monkeypatch):
+    for var in ("XAI_API_KEY", "ELEVENLABS_API_KEY", "CARTESIA_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    window._update_key_hint()
+    assert "Providers" in window.status.text()
+    monkeypatch.setenv("CARTESIA_API_KEY", "x")
+    window._update_key_hint()
+    assert "Providers" not in window.status.text()

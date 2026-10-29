@@ -49,6 +49,7 @@ from agent_tts.ui_qt.voice_model import (
 )
 from agent_tts.voice_library import label_values
 
+NO_PROVIDER_HINT = "No provider is active. Press Providers… to add an API key."
 TEST_TEXT = "Testing, one, two, three. That's elegant. Wait, that's wrong. Let's see what you can do."
 
 
@@ -416,16 +417,19 @@ class Window(QMainWindow):
         dialog = ProvidersDialog(self)
         dialog.keys_changed.connect(self._keys_changed)
         dialog.exec()
+        for row in dialog._rows.values():
+            row["field"].clear()  # an unsaved key must not linger in a hidden widget
+        dialog.deleteLater()
         self._update_key_hint()
 
     def _keys_changed(self, provider):
-        self.controller.catalogs.pop(provider, None)
-        if provider == self.provider:
-            self.controller.fetch_catalog(provider, refresh=True)
+        self.controller.key_changed(provider, refetch=provider == self.provider)
 
     def _update_key_hint(self):
         if not any(credentials.lookup(provider_class(p).env_var) for p in PROVIDER_LABELS):
-            self.status.setText("No provider is active. Press Providers… to add an API key.")
+            self.status.setText(NO_PROVIDER_HINT)
+        elif self.status.text() == NO_PROVIDER_HINT:
+            self.status.setText("Ready — choose a voice or start listening")
 
     def _edit_values(self, *_):
         if self._loading_editor:

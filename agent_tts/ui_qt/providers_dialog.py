@@ -43,7 +43,7 @@ def describe_failure(provider: str, exc: Exception) -> str:
 
 class ProvidersDialog(QDialog):
     keys_changed = Signal(str)  # provider name, after a save or remove
-    _checked = Signal(str, bool, str)
+    _checked = Signal(str, int, bool, str)
 
     def __init__(self, parent=None, *, check=check_key):
         super().__init__(parent)
@@ -96,7 +96,8 @@ class ProvidersDialog(QDialog):
         field.returnPressed.connect(lambda p=provider: self._save(p))
         save.clicked.connect(lambda _=False, p=provider: self._save(p))
         remove.clicked.connect(lambda _=False, p=provider: self._remove(p))
-        self._rows[provider] = {"status": status, "field": field, "save": save, "remove": remove, "result": result}
+        self._rows[provider] = {"status": status, "field": field, "save": save, "remove": remove,
+                                "result": result, "seq": 0}
         return frame
 
     def _refresh(self, provider):
@@ -115,6 +116,8 @@ class ProvidersDialog(QDialog):
 
     def _save(self, provider):
         row = self._rows[provider]
+        if not row["save"].isEnabled():
+            return  # a check is still running; Enter in the field must not bypass the disabled button
         key = row["field"].text().strip()
         if not key:
             row["result"].setText("Enter a key first.")
@@ -126,19 +129,27 @@ class ProvidersDialog(QDialog):
             return
         row["field"].clear()
         row["save"].setEnabled(False)
+        row["seq"] += 1
         row["result"].setText("Saved. Checking the key…")
         self._refresh(provider)
         self.keys_changed.emit(provider)
-        threading.Thread(target=self._run_check, args=(provider, key), daemon=True, name=f"tts-keycheck-{provider}").start()
+        threading.Thread(target=self._run_check, args=(provider, key, row["seq"]), daemon=True,
+                         name=f"tts-keycheck-{provider}").start()
 
-    def _run_check(self, provider, key):
+    def _run_check(self, provider, key, seq):
         try:
-            self._checked.emit(provider, True, self._check(provider, key))
+            outcome = (True, self._check(provider, key))
         except Exception as exc:  # noqa: BLE001 - worker/UI error boundary
-            self._checked.emit(provider, False, describe_failure(provider, exc))
+            outcome = (False, describe_failure(provider, exc))
+        try:
+            self._checked.emit(provider, seq, *outcome)
+        except RuntimeError:
+            pass  # the dialog was closed and deleted while the check ran
 
-    def _show_check(self, provider, ok, message):
+    def _show_check(self, provider, seq, ok, message):
         row = self._rows[provider]
+        if seq != row["seq"]:
+            return  # the key was removed or replaced after this check started
         row["save"].setEnabled(True)
         row["result"].setText(message if ok else f"Saved, but the check failed. {message}")
 
@@ -149,6 +160,8 @@ class ProvidersDialog(QDialog):
         except credentials.CredentialError as exc:
             row["result"].setText(str(exc))
             return
+        row["seq"] += 1  # any check still running is now out of date
+        row["save"].setEnabled(True)
         row["result"].setText("Removed.")
         self._refresh(provider)
         self.keys_changed.emit(provider)

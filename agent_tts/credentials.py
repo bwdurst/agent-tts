@@ -9,7 +9,7 @@ in the app; `lookup` reports the source so the UI can say which one is in use.
 import os
 
 import keyring
-from keyring.errors import KeyringError, PasswordDeleteError
+from keyring.errors import PasswordDeleteError
 
 SERVICE = "agent-tts"
 SAVED = "saved"
@@ -23,7 +23,7 @@ class CredentialError(RuntimeError):
 def _saved(env_var: str) -> str | None:
     try:
         return keyring.get_password(SERVICE, env_var) or None
-    except KeyringError as exc:
+    except Exception as exc:  # noqa: BLE001 - backends raise their own types (pywintypes.error on Windows)
         raise CredentialError(f"Credential store unavailable: {exc}") from exc
 
 
@@ -54,7 +54,7 @@ def save(env_var: str, key: str) -> None:
         raise ValueError("Enter a key first.")
     try:
         keyring.set_password(SERVICE, env_var, key)
-    except KeyringError as exc:
+    except Exception as exc:  # noqa: BLE001 - see _saved
         raise CredentialError(f"Could not save the key: {exc}") from exc
 
 
@@ -65,5 +65,5 @@ def delete(env_var: str) -> bool:
         return True
     except PasswordDeleteError:
         return False
-    except KeyringError as exc:
+    except Exception as exc:  # noqa: BLE001 - see _saved
         raise CredentialError(f"Could not remove the key: {exc}") from exc

@@ -69,3 +69,24 @@ def test_muted_speaker_needs_no_provider_key(make_cfg):
     with pytest.raises(RuntimeError):
         ProviderPool(cfg).preflight()
     assert provider_class("xai").env_var == VAR
+
+
+class WindowsLikeError(Exception):
+    """Stand-in for pywintypes.error, which is not a KeyringError."""
+
+
+def test_any_backend_failure_is_handled_not_just_keyring_errors(monkeypatch):
+    monkeypatch.setenv(VAR, "from-env")
+
+    def broken(*args):
+        raise WindowsLikeError(1312, "CredRead", "A specified logon session does not exist.")
+
+    monkeypatch.setattr(keyring, "get_password", broken)
+    monkeypatch.setattr(keyring, "set_password", broken)
+    monkeypatch.setattr(keyring, "delete_password", broken)
+    assert credentials.lookup(VAR) == ("from-env", credentials.ENVIRONMENT)
+    assert credentials.status(VAR) == (False, True)
+    with pytest.raises(credentials.CredentialError):
+        credentials.save(VAR, "key")
+    with pytest.raises(credentials.CredentialError):
+        credentials.delete(VAR)
