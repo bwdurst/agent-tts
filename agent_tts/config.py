@@ -1,4 +1,5 @@
 import os
+import shutil
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -28,6 +29,10 @@ class Config:
     speakers: dict[str, SpeakerConfig]
     pronunciations: dict[str, dict[str, str]] = field(default_factory=dict)
     voice_library_favorites: list[str] = field(default_factory=list)
+    # cache_dir exactly as written in the file (e.g. "%LOCALAPPDATA%\x"). load()
+    # expands it for use; save() writes this back so a user's profile path never
+    # lands in a file they might commit.
+    cache_dir_raw: str | None = None
 
     def speaker(self, name: str) -> SpeakerConfig:
         return self.speakers.get(name) or self.speakers["_default"]
@@ -35,6 +40,18 @@ class Config:
 
 def _expand(path_str: str) -> Path:
     return Path(os.path.expandvars(os.path.expanduser(path_str)))
+
+
+def ensure_user_config(path: str | Path = "voices.yaml") -> None:
+    """Create the user's voices.yaml from the shipped example on first run.
+
+    The example stays untouched and tracked; the app only ever rewrites the
+    gitignored voices.yaml.
+    """
+    path = Path(path)
+    example = path.with_name("voices.example.yaml")
+    if not path.exists() and example.exists():
+        shutil.copyfile(example, path)
 
 
 def save(cfg: "Config", path: str | Path = "voices.yaml") -> None:
@@ -51,7 +68,7 @@ def save(cfg: "Config", path: str | Path = "voices.yaml") -> None:
         "provider": cfg.provider,
         "output_format": cfg.output_format,
         "lead_in_text": cfg.lead_in_text,
-        "cache_dir": str(cfg.cache_dir),
+        "cache_dir": cfg.cache_dir_raw if cfg.cache_dir_raw is not None else str(cfg.cache_dir),
         "cache_max_mb": cfg.cache_max_mb,
         "code_blocks": cfg.code_blocks,
         "aside_blocks": cfg.aside_blocks,
@@ -114,6 +131,7 @@ def load(path: str | Path = "voices.yaml") -> Config:
         output_format=data.get("output_format", "mp3"),
         lead_in_text=data.get("lead_in_text", ""),
         cache_dir=_expand(data["cache_dir"]),
+        cache_dir_raw=str(data["cache_dir"]),
         cache_max_mb=int(data.get("cache_max_mb", 500)),
         code_blocks=data.get("code_blocks", "skip"),
         aside_blocks=data.get("aside_blocks", "skip"),

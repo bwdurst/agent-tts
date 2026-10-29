@@ -158,7 +158,7 @@ class Window(QMainWindow):
         self.body_split.setSizes([180, 530])
         layout.addWidget(self.body_split, 1)
         self.setCentralWidget(root)
-        self.statusBar().showMessage("Qt candidate • saved voices are used for live listening")
+        self.statusBar().showMessage("Saved voices are used for live listening")
 
     def _build_editor(self):
         group = QGroupBox("Speaker settings")

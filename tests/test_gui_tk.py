@@ -193,7 +193,7 @@ def test_speaker_switch_retains_unsaved_values(root, monkeypatch, tmp_path):
     from agent_tts.gui.library_view import LibraryView
     from agent_tts.gui.voice_settings import VoiceSettingsPanel
 
-    cfg = config.load(Path(__file__).resolve().parents[1] / "voices.yaml")
+    cfg = config.load(Path(__file__).resolve().parents[1] / "voices.example.yaml")
     dest = tmp_path / "voices.yaml"
     config.save(cfg, dest)
     app = SimpleNamespace(root=root, cfg=cfg, config_path=dest, log=lambda msg: None)

@@ -7,10 +7,12 @@ the file so frequently replayed lines survive.
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
 AUDIO_EXTS = (".mp3", ".wav")
+_KEY_STEM = re.compile(r"[0-9a-f]{64}")  # what key() produces; nothing else is ours to delete
 
 
 def key(
@@ -49,14 +51,15 @@ def touch(path: Path) -> None:
 
 def evict(cache_dir: Path, max_mb: int, keep: set[Path] | None = None) -> int:
     """Delete least-recently-used audio files until the cache fits in
-    `max_mb`. Only top-level audio files count; subfolders such as
-    voice_previews are left alone. `keep` is never deleted. Returns the
+    `max_mb`. Only top-level files this cache wrote (audio named by a
+    64-character hex key) count; subfolders such as voice_previews and any
+    other audio in the folder are left alone. `keep` is never deleted. Returns the
     number of files removed. A non-positive limit disables eviction."""
     if max_mb <= 0 or not cache_dir.is_dir():
         return 0
     entries = []
     for p in cache_dir.iterdir():
-        if p.suffix.lower() not in AUDIO_EXTS:
+        if p.suffix.lower() not in AUDIO_EXTS or not _KEY_STEM.fullmatch(p.stem):
             continue
         try:
             st = p.stat()

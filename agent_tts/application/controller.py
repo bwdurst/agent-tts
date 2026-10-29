@@ -171,7 +171,7 @@ class Controller:
 
     def _submit_text(self, text):
         cfg = deepcopy(self.drafts.saved)
-        for block in parser.parse(text):
+        for block in parser.parse(text, parser.speaker_names(cfg.speakers)):
             if block.speaker == parser.CODE and cfg.code_blocks == "skip":
                 continue
             if block.speaker == parser.ASIDE and cfg.aside_blocks == "skip":

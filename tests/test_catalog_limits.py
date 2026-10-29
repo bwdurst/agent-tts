@@ -2,7 +2,10 @@
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
+from agent_tts.application.controller import error_message
+from agent_tts.gui.library_model import describe_error
 from agent_tts.tts.base import CatalogLimitError
 from agent_tts.tts.cartesia_provider import CartesiaProvider
 from agent_tts.tts.elevenlabs_provider import ElevenLabsProvider
@@ -34,3 +37,19 @@ def test_complete_catalog_still_returns(tmp_path, provider_cls, module, cursor_k
     instance = provider_cls("fixture-key", "mp3", tmp_path)
     with patch(f"agent_tts.tts.{module}.requests.get", return_value=_response({"has_more": False})):
         assert instance.list_voices() == []
+
+
+@pytest.mark.parametrize("provider_cls, module, cursor_key", CASES)
+def test_catalog_failures_have_readable_messages_in_both_uis(tmp_path, provider_cls, module, cursor_key):
+    instance = provider_cls("fixture-key", "mp3", tmp_path)
+    with patch(f"agent_tts.tts.{module}.requests.get", return_value=_response({"has_more": True})):
+        with pytest.raises(CatalogLimitError) as limit:
+            instance.list_voices()
+    ticks = iter([0.0, 100.0])
+    with patch(f"agent_tts.tts.{module}.time.monotonic", side_effect=lambda: next(ticks)):
+        with pytest.raises(requests.Timeout) as timeout:
+            instance.list_voices()
+    for exc in (limit.value, timeout.value):
+        assert error_message(exc).strip()
+        message = describe_error(instance.name, exc)
+        assert message.strip() and not message.endswith(": ")

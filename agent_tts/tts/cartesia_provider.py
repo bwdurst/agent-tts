@@ -77,7 +77,7 @@ class CartesiaProvider(Provider):
         for _ in range(_MAX_VOICE_PAGES):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise requests.Timeout()
+                raise requests.Timeout(f"{self.name} voice catalog did not finish loading within 35 seconds.")
             params: dict[str, Any] = {"limit": 100}
             if cursor:
                 params["starting_after"] = cursor
@@ -102,9 +102,9 @@ class CartesiaProvider(Provider):
             if not payload.get("has_more"):
                 break
             if not cursor or cursor in seen_cursors:
-                raise CatalogLimitError()
+                raise CatalogLimitError(f"{self.name} voice catalog paging did not advance (missing or repeating cursor).")
             seen_cursors.add(cursor)
         else:
-            raise CatalogLimitError()
+            raise CatalogLimitError(f"{self.name} voice catalog exceeds {_MAX_VOICE_PAGES} pages.")
         return out
 

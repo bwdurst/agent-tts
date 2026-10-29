@@ -2,6 +2,12 @@ from agent_tts import parser
 from agent_tts.normalize import normalize
 
 
+def test_speakers_come_from_the_caller_not_a_fixed_list():
+    text = "ORION: First.\nKIRA: Second."
+    assert [b.speaker for b in parser.parse(text, ("ORION",))] == ["ORION"]
+    assert [b.speaker for b in parser.parse(text, parser.speaker_names({"_default": 0, "ORION": 0, "KIRA": 0}))] == ["ORION", "KIRA"]
+
+
 def test_named_speakers_code_and_asides_remain_distinct():
     text = "KIRA: Hello.\n```python\nprint(1)\n```\n```aside\nA quiet note.\n```\nTANIS: Goodbye."
     blocks = parser.parse(text)

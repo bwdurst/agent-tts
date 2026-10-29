@@ -6,8 +6,10 @@ search, and one vendor failing (missing key, 401) leaves the others usable.
 """
 from dataclasses import dataclass, field
 
+import requests
+
 from agent_tts import voice_library
-from agent_tts.tts.base import Voice
+from agent_tts.tts.base import CatalogLimitError, Voice
 from agent_tts.tts.factory import PROVIDERS
 
 TAB_LABELS = {"xai": "xAI", "elevenlabs": "ElevenLabs", "cartesia": "Cartesia"}
@@ -33,6 +35,10 @@ def describe_error(provider: str, exc: Exception) -> str:
     text = str(exc)
     if isinstance(exc, RuntimeError) and "not set" in text:
         return f"{label} is not set up. Add {env_var} to .env and restart the app."
+    if isinstance(exc, CatalogLimitError):
+        return f"{label} returned a voice list that could not be loaded completely. Try again later."
+    if isinstance(exc, requests.Timeout):
+        return f"{label} took too long to list voices. Try again."
     status = getattr(getattr(exc, "response", None), "status_code", None)
     if status in (401, 403):
         return (f"{label} rejected the API key ({status}). Check {env_var} in .env"

@@ -10,18 +10,20 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QColor, QIcon, QPalette
 from PySide6.QtWidgets import QApplication, QMessageBox
 
+from agent_tts import config as cfgmod
 from agent_tts.logging_setup import setup_logging
 from agent_tts.ui_qt.window import Window
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Agent TTS Qt candidate")
+    parser = argparse.ArgumentParser(description="Agent TTS dashboard")
     parser.add_argument("--config", type=Path, default=Path("voices.yaml"))
     parser.add_argument("--session")
     parser.add_argument("--no-hotkeys", action="store_true")
     args = parser.parse_args()
     log_path = setup_logging()
     load_dotenv()
+    cfgmod.ensure_user_config(args.config)
     if sys.platform == "win32":
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("AgentTTS.Dashboard.1")
     app = QApplication(sys.argv)

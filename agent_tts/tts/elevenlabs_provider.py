@@ -95,7 +95,7 @@ class ElevenLabsProvider(Provider):
         for _ in range(_MAX_VOICE_PAGES):
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise requests.Timeout()
+                raise requests.Timeout(f"{self.name} voice catalog did not finish loading within 35 seconds.")
             params: dict[str, Any] = {"page_size": 100}
             if token:
                 params["next_page_token"] = token
@@ -126,9 +126,9 @@ class ElevenLabsProvider(Provider):
             if not payload.get("has_more"):
                 break
             if not token or token in seen_cursors:
-                raise CatalogLimitError()
+                raise CatalogLimitError(f"{self.name} voice catalog paging did not advance (missing or repeating cursor).")
             seen_cursors.add(token)
         else:
-            raise CatalogLimitError()
+            raise CatalogLimitError(f"{self.name} voice catalog exceeds {_MAX_VOICE_PAGES} pages.")
         return out
 

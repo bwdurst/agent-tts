@@ -21,7 +21,8 @@ OK          = "#a6e3a1"
 SPEAKER_COLORS = {
     "KIRA":  "#ff9aa0",
     "CADE":  "#8ab4ff",
-    "SOREN": "#9fdf8e",
+    "ROOK":  "#9fdf8e",
+    "TANIS": "#7fd6d0",
     "SAGE":  "#f9d574",
     "VEX":   "#d3a2f5",
     "_default": "#8f92a3",

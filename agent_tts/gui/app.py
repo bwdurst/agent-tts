@@ -254,7 +254,7 @@ class Dashboard:
                     # A mid-session edit broke voices.yaml; keep speaking with
                     # the last good config and say why.
                     self.root.after(0, lambda e=e: self.log(f"voices.yaml not reloaded: {e}"))
-                for b in parsermod.parse(text):
+                for b in parsermod.parse(text, parsermod.speaker_names(self.cfg.speakers)):
                     if not self.running:
                         break
                     if b.speaker == CODE:

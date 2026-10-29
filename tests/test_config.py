@@ -8,6 +8,29 @@ def _write(path, data):
     path.write_text(yaml.dump(data), encoding="utf-8")
 
 
+def test_save_keeps_cache_dir_as_written(tmp_path, make_cfg):
+    p = tmp_path / "voices.yaml"
+    config.save(make_cfg(), p)
+    data = yaml.safe_load(p.read_text(encoding="utf-8"))
+    data["cache_dir"] = "%LOCALAPPDATA%\\agent_tts\\cache"
+    p.write_text(yaml.dump(data), encoding="utf-8")
+    cfg = config.load(p)
+    assert "%" not in str(cfg.cache_dir)
+    config.save(cfg, p)
+    assert yaml.safe_load(p.read_text(encoding="utf-8"))["cache_dir"] == "%LOCALAPPDATA%\\agent_tts\\cache"
+
+
+def test_ensure_user_config_copies_example_once(tmp_path):
+    example = tmp_path / "voices.example.yaml"
+    example.write_text("a: 1\n", encoding="utf-8")
+    target = tmp_path / "voices.yaml"
+    config.ensure_user_config(target)
+    assert target.read_text(encoding="utf-8") == "a: 1\n"
+    target.write_text("edited\n", encoding="utf-8")
+    config.ensure_user_config(target)
+    assert target.read_text(encoding="utf-8") == "edited\n"
+
+
 def test_roundtrip(tmp_path, make_cfg):
     cfg = make_cfg()
     p = tmp_path / "voices.yaml"
@@ -77,5 +100,5 @@ def test_default_speaker_required(tmp_path):
 
 
 def test_shipped_voices_yaml_loads():
-    cfg = config.load("voices.yaml")
+    cfg = config.load("voices.example.yaml")
     assert cfg.speaker("_default").voice_id

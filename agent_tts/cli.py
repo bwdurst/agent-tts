@@ -60,7 +60,7 @@ def _run_file(args, cfg) -> int:
         blocks = [Block(speaker=speaker, text=args.text)]
     elif args.file:
         text = args.file.read_text(encoding="utf-8")
-        blocks = parsermod.parse(text)
+        blocks = parsermod.parse(text, parsermod.speaker_names(cfg.speakers))
     else:
         print("error: provide a file or --text/--speaker", file=sys.stderr)
         return 2
@@ -130,7 +130,7 @@ def _run_live(args, cfg) -> int:
 
     try:
         for text in transcript.tail(jsonl_path, from_end=True, stop_event=stop_event, session_dir=session_dir):
-            blocks = parsermod.parse(text)
+            blocks = parsermod.parse(text, parsermod.speaker_names(cfg.speakers))
             if not blocks:
                 continue
             print(f"\n[new message: {len(blocks)} block(s)]")
@@ -162,6 +162,7 @@ def main() -> int:
     ap.add_argument("--session", type=str, help="Path to a specific .jsonl session file.")
     args = ap.parse_args()
 
+    cfgmod.ensure_user_config(args.config)
     cfg = cfgmod.load(args.config)
 
     if args.gui:

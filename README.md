@@ -22,11 +22,11 @@ python -m venv .venv
 copy .env.example .env
 ```
 
-Put a key in `.env` for each provider you plan to use. Only providers assigned in `voices.yaml` need one.
+Put a key in `.env` for each provider you plan to use. Only providers assigned in `voices.yaml` need one. On first run the app copies `voices.example.yaml` to `voices.yaml`, which is gitignored; the app only ever rewrites that copy.
 
 | Provider | Variable | Notes |
 | --- | --- | --- |
-| xAI | `XAI_API_KEY` | Default provider in the shipped `voices.yaml`. |
+| xAI | `XAI_API_KEY` | Default provider in the shipped `voices.example.yaml`. |
 | ElevenLabs | `ELEVENLABS_API_KEY` | Needs `text_to_speech`; add `voices_read` to browse voices in the dashboard. |
 | Cartesia | `CARTESIA_API_KEY` | |
 
@@ -43,19 +43,20 @@ Qt dashboard (Claude and Codex input):
 The original Tkinter dashboard (Claude input only) needs only `requirements.txt`:
 
 ```powershell
-python -m agent_tts --gui
+.\.venv\Scripts\python.exe -m agent_tts --gui
 ```
 
 In the dashboard, choose a listener source, press **Start**, and talk to your agent. Its next reply is spoken once it lands in the transcript. Browse the provider voice libraries, preview a voice, assign it to a speaker, then **Save**. Saving writes `voices.yaml`.
 
-Keyboard: `Ctrl+Shift+.` skips the current clip and `Ctrl+Shift+/` flushes everything queued.
+Keyboard, while listening: `Ctrl+Shift+.` skips the current clip and `Ctrl+Shift+/` flushes everything queued.
 
 Command line:
 
 ```powershell
-python -m agent_tts --dry-run test-dialogue.txt        # parse a file, no API calls
-python -m agent_tts --text "Hello" --speaker KIRA      # speak one line
-python -m agent_tts --live                             # tail the newest Claude Code session
+$py = ".\.venv\Scripts\python.exe"
+& $py -m agent_tts --dry-run test-dialogue.txt         # parse a file, no API calls
+& $py -m agent_tts --text "Hello" --speaker KIRA       # speak one line
+& $py -m agent_tts --live                              # tail the newest Claude Code session for the project in the current directory
 ```
 
 ## How it works
@@ -73,7 +74,7 @@ agent_tts.tts           per-speaker provider (xai | elevenlabs | cartesia) + on-
 agent_tts.player        Windows MCI playback queue
 ```
 
-Claude transcripts are read from `~/.claude/projects`. Codex rollouts are read from `$CODEX_HOME/sessions`, defaulting to `~/.codex/sessions`. This is a local-file integration and depends on those applications' file formats, so a format change in either can break it. Codex replies are voiced when complete. Reasoning, tool output, and user messages are never spoken.
+Claude transcripts are read from `~/.claude/projects`. Codex rollouts are read from `$CODEX_HOME/sessions`, defaulting to `~/.codex/sessions`. This is a local-file integration and depends on those applications' file formats, so a format change in either can break it. Codex replies are voiced when complete; the Qt dashboard's "Codex progress" checkbox also speaks progress updates. Reasoning, tool output, and user messages are never spoken.
 
 ### Writing agents so they sound right
 
@@ -81,7 +82,7 @@ Claude transcripts are read from `~/.claude/projects`. Codex rollouts are read f
 - Text with no prefix is skipped when the reply contains any prefix.
 - Code blocks and tool output are not voiced by default (`code_blocks: skip`).
 - Markdown blockquotes (`>`) are treated as written asides and are not voiced by default (`aside_blocks: skip`). Put detail you want to read but not hear there.
-- Speakers must be listed in `voices.yaml`. Built-in names are `KIRA`, `TANIS`, `CADE`, `ROOK`, `SAGE`, `VEX`, and `NARRATOR`. To add one, add it to `SPEAKERS` in `agent_tts/parser.py` and to `voices.yaml`.
+- The speakers listed in `voices.yaml` (other than `_default`) are the names the parser recognizes, so adding a speaker there is all it takes. The shipped file lists `KIRA`, `TANIS`, `CADE`, `ROOK`, `SAGE`, `VEX`, and `NARRATOR`. A prefix that is not listed is treated as ordinary text.
 
 ## Configuring voices
 
@@ -109,7 +110,7 @@ speakers:
 | `elevenlabs` | `model_id`, `stability`, `similarity_boost`, `style`, `speed`, `use_speaker_boost` | kept only for `eleven_v3` |
 | `cartesia` | `model_id`, `language`, `speed`, `volume`, `emotion` | `[laughter]` kept, others stripped |
 
-Settings outside a provider's schema are ignored. A speaker whose `voice_id` is `TODO_PICK_VOICE` fails with a clear message instead of calling the API. `output_format` accepts `mp3` or `wav`. Synthesized audio is cached under `cache_dir`, keyed by provider, text, voice, settings, and format, and trimmed to `cache_max_mb` by least-recently-used eviction.
+Saving from the dashboard rewrites `voices.yaml` without its comments. Settings outside a provider's schema are ignored. A speaker whose `voice_id` is `TODO_PICK_VOICE` fails with a clear message instead of calling the API. `output_format` accepts `mp3` or `wav`. Synthesized audio is cached under `cache_dir`, keyed by provider, text, voice, settings, and format, and trimmed to `cache_max_mb` by least-recently-used eviction. Eviction only removes files this app wrote (names that are a 64-character hex key), so pointing `cache_dir` at a folder that holds other audio does not delete it.
 
 Voice catalogs are bounded. If a provider's paging does not finish (a repeating or missing cursor, too many pages, or a 35 second deadline), the dashboard reports an error instead of showing a partial list as complete.
 
@@ -120,7 +121,7 @@ Voice catalogs are bounded. If a provider's paging does not finish (a repeating 
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
-The suite runs without network access. It does not cover audio quality or live provider behavior. Qt window tests create real windows, and Windows may print a harmless COM warning (`0x8001010D`) while they run.
+The suite runs without network access and needs no `voices.yaml`. It does not cover audio quality or live provider behavior. Qt window tests create real windows, and Windows may print a harmless COM warning (`0x8001010D`) while they run.
 
 ## Troubleshooting
 

@@ -1,8 +1,8 @@
 import re
 from dataclasses import dataclass
 
+# Names recognised when the caller does not pass its own (the speakers of voices.yaml).
 SPEAKERS = ("KIRA", "TANIS", "CADE", "ROOK", "SAGE", "VEX", "NARRATOR")
-SPEAKER_RE = re.compile(r"^(KIRA|TANIS|CADE|ROOK|SAGE|VEX|NARRATOR): (.*)$")
 # Language tag is captured so we can tell "aside" blocks (displayed only,
 # not voiced) from generic code blocks.
 FENCE_RE = re.compile(r"^```(\w*)")
@@ -22,7 +22,19 @@ class Block:
     text: str
 
 
-def parse(text: str) -> list[Block]:
+def speaker_names(speakers) -> tuple[str, ...]:
+    """Speaker names from a voices.yaml `speakers` mapping, minus `_default`-style keys."""
+    return tuple(n for n in speakers if not n.startswith("_"))
+
+
+def parse(text: str, speakers: tuple[str, ...] | list[str] | None = None) -> list[Block]:
+    """Split text into per-speaker blocks.
+
+    `speakers` are the names that count as a `NAME: ` prefix; pass
+    `speaker_names(cfg.speakers)` so voices.yaml is the single list.
+    """
+    names = tuple(speakers) if speakers else SPEAKERS
+    SPEAKER_RE = re.compile(r"^(" + "|".join(re.escape(n) for n in names) + r"): (.*)$")
     lines = text.splitlines()
     has_any_prefix = any(SPEAKER_RE.match(l) for l in lines)
 
