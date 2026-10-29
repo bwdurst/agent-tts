@@ -13,12 +13,14 @@ def test_defaults_read_as_ctrl_shift_keys():
         "start": "Ctrl+Shift+,", "stop": "Ctrl+Shift+M", "skip": "Ctrl+Shift+.", "flush": "Ctrl+Shift+/"}
 
 
-@pytest.mark.parametrize("spec", ["Ctrl+Shift+,", "Ctrl+Alt+F5", "Win+Up", "Alt+7", "Ctrl+Shift+Space", "Ctrl+Backspace"])
+@pytest.mark.parametrize("spec", ["Ctrl+Shift+,", "Ctrl+Alt+F5", "Win+Up", "Alt+7", "Ctrl+Shift+Space", "Shift+F5"])
 def test_parse_and_format_round_trip(spec):
     assert hotkeys.format_binding(*hotkeys.parse_binding(spec)) == spec
 
 
-@pytest.mark.parametrize("spec", ["", "Shift", "Ctrl+", "F5", "A", "Ctrl+Hyper+A", "Ctrl+Q+R", "Ctrl+Nope"])
+@pytest.mark.parametrize("spec", ["", "Shift", "Ctrl+", "F5", "A", "Ctrl+Hyper+A", "Ctrl+Q+R", "Ctrl+Nope",
+                                  "Shift+A", "Ctrl+C", "Ctrl+Z", "Ctrl+Backspace", "Alt+F4", "Alt+Space",
+                                  "Ctrl+Shift+F12", "Ctrl+Alt+Q", "Ctrl+Alt+Shift+7"])
 def test_bad_bindings_are_rejected(spec):
     with pytest.raises(ValueError):
         hotkeys.parse_binding(spec)

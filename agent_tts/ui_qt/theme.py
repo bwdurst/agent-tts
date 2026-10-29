@@ -5,15 +5,7 @@ OK = "#7fd99a"
 DANGER = "#f08a8a"
 MUTED = "#8f92a3"
 
-# Matches the Tk dashboard so a speaker looks the same in either window.
-SPEAKER_COLORS = {
-    "KIRA": "#ff9aa0",
-    "TANIS": "#7fd6d0",
-    "CADE": "#8ab4ff",
-    "ROOK": "#9fdf8e",
-    "SAGE": "#f9d574",
-    "VEX": "#d3a2f5",
-}
+from agent_tts.palette import SPEAKER_COLORS  # shared with the Tk dashboard
 
 STYLE = f"""
 QPushButton#primary {{

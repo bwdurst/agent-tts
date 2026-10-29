@@ -281,7 +281,7 @@ def test_changing_hotkeys_saves_rebinds_and_updates_tooltips(window, monkeypatch
     assert window.settings.value("hotkey/start") == "Ctrl+Alt+F5" and window.settings.value("hotkey/stop") == ""
     assert window.start_button.toolTip().endswith("Ctrl+Alt+F5")
     assert window.stop_button.toolTip().endswith("Not set")
-    assert window.hotkeys_button.isEnabled()
+    assert not window.hotkeys_button.isEnabled()  # the test window runs with hotkeys off, so there is nothing to change
 
 
 def test_transcript_colors_speakers_and_shows_text_literally(window):
@@ -314,3 +314,54 @@ def test_status_line_is_green_while_listening_and_red_for_errors(window):
 def test_start_is_the_primary_button_and_stop_only_stands_out_while_listening(window):
     assert window.start_button.objectName() == "primary" and window.stop_button.objectName() == "stopButton"
     assert "primary" in window.styleSheet() and not window.stop_button.isEnabled()
+
+
+def test_hotkeys_are_paused_while_the_hotkeys_dialog_is_open(window, monkeypatch):
+    """A registered hotkey fires instead of reaching the capture field, so none may be live while it is open."""
+    from agent_tts import hotkeys
+    from agent_tts.ui_qt import window as window_module
+
+    events = []
+    monkeypatch.setattr(window.controller, "suspend_hotkeys", lambda: events.append("suspend"))
+    monkeypatch.setattr(window.controller, "rebind_hotkeys", lambda b: events.append(("rebind", b)))
+    original = dict(window.hotkey_bindings)
+    changed = {**original, "start": hotkeys.parse_binding("Ctrl+Shift+X")}
+
+    class FakeDialog:
+        outcome = 0
+
+        def __init__(self, bindings, parent=None):
+            events.append("open")
+            self.bindings = changed
+
+        def exec(self):
+            events.append("exec")
+            if FakeDialog.outcome is None:
+                raise RuntimeError("dialog crashed")
+            return FakeDialog.outcome
+
+        def deleteLater(self):
+            events.append("closed")
+
+    monkeypatch.setattr(window_module, "HotkeysDialog", FakeDialog)
+
+    window._open_hotkeys()  # Cancel: the old bindings come back
+    assert events[:3] == ["suspend", "open", "exec"] and events[-1] == ("rebind", original)
+    assert window.hotkey_bindings == original
+
+    events.clear()
+    FakeDialog.outcome = None  # even a crashing dialog must not leave hotkeys dead
+    with pytest.raises(RuntimeError):
+        window._open_hotkeys()
+    assert events[0] == "suspend" and events[-1] == ("rebind", original)
+
+    events.clear()
+    FakeDialog.outcome = 1  # Save: the new bindings take over
+    window._open_hotkeys()
+    assert events[0] == "suspend" and events[-1] == ("rebind", changed)
+    assert window.hotkey_bindings == changed and window.settings.value("hotkey/start") == "Ctrl+Shift+X"
+
+
+def test_transcript_keeps_indentation_and_repeated_spaces(window):
+    window._notify("transcript", ("ROOK", "def f():\n    return  1\n\tx"))
+    assert "def f():\n    return  1\n\tx" in window.transcript.toPlainText()

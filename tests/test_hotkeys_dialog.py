@@ -51,3 +51,15 @@ def test_duplicate_combinations_are_refused_and_defaults_restore(app):
     dialog.fields["flush"].set_binding(None)  # unbinding an action is allowed
     dialog._accept()
     assert dialog.result() == QDialog.DialogCode.Accepted and dialog.bindings["flush"] is None
+
+
+def test_escape_still_cancels_the_dialog_from_a_capture_field(app):
+    from PySide6.QtTest import QTest
+
+    dialog = HotkeysDialog(dict(hotkeys.DEFAULT_BINDINGS))
+    dialog.show()
+    field = dialog.fields["start"]
+    field.setFocus()
+    QTest.keyClick(field, Qt.Key.Key_Escape)
+    assert dialog.result() == QDialog.DialogCode.Rejected
+    assert field.binding == hotkeys.DEFAULT_BINDINGS["start"]  # Escape was not captured as a key

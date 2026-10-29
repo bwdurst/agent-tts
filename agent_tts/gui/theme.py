@@ -4,6 +4,8 @@ Text tiers were raised from the original palette: the dimmest grey measured
 about 2.7:1 against the card surface, below the 4.5:1 floor for body text.
 """
 
+from agent_tts.palette import SPEAKER_COLORS as _SPEAKER_COLORS
+
 BG          = "#121318"   # app background (cooler near-black)
 BG_CARD     = "#1a1b24"   # surface (transcript panel, settings panel)
 BG_ELEV     = "#232531"   # elevated surface (input fields, slider trough, button rest)
@@ -19,12 +21,7 @@ DANGER      = "#f38ba8"
 OK          = "#a6e3a1"
 
 SPEAKER_COLORS = {
-    "KIRA":  "#ff9aa0",
-    "CADE":  "#8ab4ff",
-    "ROOK":  "#9fdf8e",
-    "TANIS": "#7fd6d0",
-    "SAGE":  "#f9d574",
-    "VEX":   "#d3a2f5",
+    **_SPEAKER_COLORS,
     "_default": "#8f92a3",
     "_code":    "#8a8da0",
 }

@@ -44,6 +44,29 @@ def format_binding(mods, vk):
     return "+".join([name for name, bit in _MODIFIER_NAMES if mods & bit] + [label])
 
 
+_F_KEYS = range(0x70, 0x88)
+_VK_F4, _VK_F12 = 0x73, 0x7B
+# Exact (modifiers, key) pairs that are editing or window shortcuts everywhere.
+_RESERVED = ({(MOD_CTRL, ord(c)) for c in "ACVXYZS"}
+             | {(MOD_CTRL, 0x08), (MOD_CTRL, 0x2E), (MOD_ALT, _VK_F4), (MOD_ALT, 0x20)})
+
+
+def _refusal(mods, vk):
+    """Why this combination must not be a global hotkey, or None.
+
+    A registered combination is taken from every application, so it must not be
+    something people type or use as a standard shortcut."""
+    if vk == _VK_F12:
+        return "F12 is reserved by Windows for debuggers."
+    if (mods, vk) in _RESERVED:
+        return "That is a standard editing or window shortcut; binding it would break it in every program."
+    if not mods & (MOD_CTRL | MOD_ALT | MOD_WIN) and vk not in _F_KEYS:
+        return "Shift alone would take over typing. Add Ctrl, Alt or Win."
+    if mods & MOD_CTRL and mods & MOD_ALT and vk not in _F_KEYS and vk not in _NAMED_KEYS.values():
+        return "Ctrl+Alt is AltGr on many keyboards and would take over typing. Use Ctrl+Shift or Win instead."
+    return None
+
+
 def parse_binding(spec):
     """"Ctrl+Shift+," -> (modifier mask, virtual key). A global hotkey needs a modifier."""
     parts = [p.strip() for p in str(spec).split("+")]
@@ -61,6 +84,9 @@ def parse_binding(spec):
         raise ValueError(f"Unsupported key {key!r}.")
     if not mods:
         raise ValueError("Include Ctrl, Alt, Shift or Win so the key does not steal normal typing.")
+    refusal = _refusal(mods, vk)
+    if refusal:
+        raise ValueError(refusal)
     return mods, vk
 WM_QUIT, WM_HOTKEY = 0x0012, 0x0312
 _thread = None

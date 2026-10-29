@@ -74,8 +74,18 @@ class Controller:
             hotkeys.register(pressed("skip"), pressed("flush"),
                              lambda message: self._emit(Result(self.session_gen, "error", message)),
                              on_start=pressed("start"), on_stop=pressed("stop"), bindings=bindings)
-        except RuntimeError as exc:
-            self._emit(Result(self.session_gen, "error", str(exc)))
+        except RuntimeError:
+            self._emit(Result(self.session_gen, "error",
+                              "Hotkeys could not restart; restart Agent TTS to apply them."))
+
+    def suspend_hotkeys(self):
+        """Release every global hotkey, e.g. while a dialog captures key presses.
+
+        Windows delivers a registered combination to its owner before any widget sees
+        it, so a field could never capture a key that is still registered. Call
+        rebind_hotkeys afterwards to turn them back on."""
+        if self.enable_hotkeys:
+            hotkeys.unregister()
 
     def rebind_hotkeys(self, bindings):
         """Apply new key bindings now (UI thread). The old registrations are released first."""

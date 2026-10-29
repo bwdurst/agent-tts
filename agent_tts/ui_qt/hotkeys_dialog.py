@@ -95,6 +95,9 @@ class KeyCaptureEdit(QLineEdit):
     def keyPressEvent(self, event):
         if event.key() in _MODIFIER_KEYS or event.isAutoRepeat():
             return  # wait for the real key
+        if not event.modifiers() and event.key() in (Qt.Key.Key_Escape, Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            event.ignore()  # let the dialog cancel or press Save
+            return
         self.capture(event.modifiers(), event.nativeVirtualKey())
         event.accept()
 
@@ -106,8 +109,9 @@ class HotkeysDialog(QDialog):
         self.setMinimumWidth(460)
         layout = QVBoxLayout(self)
         intro = QLabel("Global hotkeys work in any application while Agent TTS is open. Click a field and press "
-                       "the combination you want; Backspace or Delete clears it. A combination another program "
-                       "already uses is reported in the status line after you save.")
+                       "the combination you want; Backspace or Delete clears it. Your current hotkeys are paused while "
+                       "this window is open. A combination another program already uses is reported in the "
+                       "status line after you save.")
         intro.setWordWrap(True)
         layout.addWidget(intro)
         form = QFormLayout()

@@ -126,6 +126,7 @@ class Window(QMainWindow):
         self.hotkeys_button.setMinimumHeight(32)
         self.hotkeys_button.setToolTip("View or change the global hotkeys")
         self.hotkeys_button.clicked.connect(self._open_hotkeys)
+        self.hotkeys_button.setEnabled(self.controller.enable_hotkeys)  # --no-hotkeys registers none
         controls.addWidget(self.hotkeys_button)
         self.start_button = QPushButton("Start listening")
         self.start_button.setObjectName("primary")
@@ -454,17 +455,28 @@ class Window(QMainWindow):
         self.flush_button.setToolTip(f"Discard queued and in-flight audio — {keys['flush']}")
 
     def _open_hotkeys(self):
+        # Registered hotkeys would fire instead of reaching the capture fields, so pause them.
+        self.controller.suspend_hotkeys()
         dialog = HotkeysDialog(self.hotkey_bindings, self)
-        if dialog.exec():
-            self._set_hotkeys(dialog.bindings)
-        dialog.deleteLater()
+        accepted = False
+        try:
+            accepted = dialog.exec()
+            bindings = dialog.bindings if accepted else self.hotkey_bindings
+        finally:
+            dialog.deleteLater()
+            if not accepted:
+                self.controller.rebind_hotkeys(self.hotkey_bindings)
+        if accepted:
+            self._set_hotkeys(bindings)
 
     def _set_hotkeys(self, bindings):
         self.hotkey_bindings = bindings
         save_bindings(self.settings, bindings)
         self._show_hotkey_tooltips()
         self.controller.rebind_hotkeys(bindings)
+        previous = self.statusBar().currentMessage()
         self.statusBar().showMessage("Hotkeys updated", 5000)
+        QTimer.singleShot(5200, lambda: self.statusBar().showMessage(previous))
 
     def _keys_changed(self, provider):
         self.controller.key_changed(provider, refetch=provider == self.provider)
@@ -671,8 +683,8 @@ class Window(QMainWindow):
 
     @staticmethod
     def _body(text):
-        """Escape text for the transcript, keeping its line breaks."""
-        return html.escape(str(text)).replace("\n", "<br>")
+        """Escape text for the transcript; pre-wrap keeps its line breaks, indentation and tabs."""
+        return f'<span style="white-space:pre-wrap">{html.escape(str(text))}</span>'
 
     def _append_transcript(self, markup):
         self.transcript.appendHtml(markup)
