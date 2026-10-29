@@ -1,0 +1,42 @@
+# Speaker -> voice mapping. The dashboard edits this file when you press Save.
+# Speakers are the uppercase NAME: prefixes your agents start their lines with.
+provider: xai            # default for speakers that name no provider
+output_format: mp3       # mp3 or wav
+lead_in_text: ''
+cache_dir: '%LOCALAPPDATA%\agent_tts\cache'
+cache_max_mb: 500        # 0 disables eviction
+code_blocks: skip        # skip | narrate
+aside_blocks: skip       # skip | narrate
+speakers:
+  _default:
+    provider: xai
+    voice_id: eve
+    settings: {}
+  KIRA:
+    provider: xai
+    voice_id: eve
+    settings: {}
+  TANIS:
+    provider: xai
+    voice_id: rex
+    settings: {}
+  CADE:
+    provider: xai
+    voice_id: leo
+    settings: {}
+  ROOK:
+    provider: xai
+    voice_id: orion
+    settings: {}
+  SAGE:
+    provider: xai
+    voice_id: altair
+    settings: {}
+  VEX:
+    provider: xai
+    voice_id: ara
+    settings: {}
+  NARRATOR:
+    provider: xai
+    voice_id: eve
+    settings: {}

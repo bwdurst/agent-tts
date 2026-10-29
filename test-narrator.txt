@@ -1,0 +1,1 @@
+This is the narrator voice, also known as default Claude. Neutral, clear, and slightly flat. This voice handles generic output, code context, and anything without an agent prefix.

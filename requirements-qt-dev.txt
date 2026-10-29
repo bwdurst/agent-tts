@@ -1,0 +1,2 @@
+-r requirements-qt.txt
+-r requirements-dev.txt

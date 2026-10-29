@@ -1,0 +1,9 @@
+KIRA: Hello, I'm Kira, your team lead. Strategic, empathic, driven, and decisive when the moment calls for it.
+
+CADE: Cade here. Code review and quality. Crisp, matter-of-fact, and efficient with your time.
+
+ROOK: Rook reporting. Testing and debugging. Steady, measured, and grounded.
+
+SAGE: Sage at your service. Documentation and architecture. Thoughtful, curious, and lightly animated.
+
+VEX: Vex online! UI and frontend design. Expressive, enthusiastic, and bright!

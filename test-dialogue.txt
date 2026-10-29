@@ -1,0 +1,18 @@
+KIRA: Sounds like two things tangled — an input-handling bug and a UX issue with how errors surface. Rook, reproduce and trace the root cause. Vex, once we know what's failing, look at how the error state is presented. Start with Rook.
+
+ROOK: On it. I'll reproduce first and report back.
+
+ROOK: Reproduced. When a comma is in the input, the search hits this branch:
+
+```javascript
+const parts = query.split(',');
+const city = parts[1].trim();
+```
+
+ROOK: Root cause is an unguarded array access.
+
+VEX: Got it. I'll redesign the error surface so the user sees a helpful message instead of a silent fail. Thinking inline validation with a soft pulse on the field.
+
+CADE: Before Vex ships the UX change, I want to review the validation logic. A surface redesign without a solid guard underneath is just hiding the bug.
+
+KIRA: Good call, Cade. Rook's fix lands first, Cade reviews, then Vex does the UX pass.
