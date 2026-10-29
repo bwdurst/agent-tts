@@ -45,7 +45,7 @@ def test_duplicate_combinations_are_refused_and_defaults_restore(app):
     dialog.fields["stop"].set_binding(dialog.fields["start"].binding)
     dialog._accept()
     assert dialog.result() != QDialog.DialogCode.Accepted
-    assert "Ctrl+Shift+," in dialog.problem.text() and "Start listening" in dialog.problem.text()
+    assert "Win+F8" in dialog.problem.text() and "Start listening" in dialog.problem.text()
     dialog._restore_defaults()
     assert dialog.bindings == hotkeys.DEFAULT_BINDINGS and dialog.problem.text() == ""
     dialog.fields["flush"].set_binding(None)  # unbinding an action is allowed

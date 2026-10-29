@@ -10,18 +10,20 @@ _user32.PostThreadMessageW.argtypes = [wintypes.DWORD, wintypes.UINT, wintypes.W
 _user32.GetMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT]
 _user32.PeekMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT, wintypes.UINT]
 MOD_ALT, MOD_CTRL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 0x0001, 0x0002, 0x0004, 0x0008, 0x4000
-VK_COMMA, VK_PERIOD, VK_SLASH, VK_M = 0xBC, 0xBE, 0xBF, 0x4D
+VK_F7, VK_F8, VK_F9, VK_F10 = 0x76, 0x77, 0x78, 0x79
 VK_BACKSPACE, VK_DELETE = 0x08, 0x2E
 # (name, registration id, label). Only actions with a handler are registered,
 # so a caller that has no start/stop (the CLI and the Tk dashboard) never
 # claims those keys.
 HOTKEYS = (("start", 3, "Start"), ("stop", 4, "Stop"), ("skip", 1, "Skip"), ("flush", 2, "Flush"))
-# Ctrl+Shift+ key. M , . / sit side by side: stop, start, skip, flush.
+# Win+F7..F10, side by side: flush, start, stop, skip. Windows keeps most Win-key
+# combinations for itself, so applications such as Teams, Office and VS Code do
+# not bind them; Ctrl/Shift/Alt combinations are what those applications use.
 DEFAULT_BINDINGS = {
-    "start": (MOD_CTRL | MOD_SHIFT, VK_COMMA),
-    "stop": (MOD_CTRL | MOD_SHIFT, VK_M),
-    "skip": (MOD_CTRL | MOD_SHIFT, VK_PERIOD),
-    "flush": (MOD_CTRL | MOD_SHIFT, VK_SLASH),
+    "start": (MOD_WIN, VK_F8),
+    "stop": (MOD_WIN, VK_F9),
+    "skip": (MOD_WIN, VK_F10),
+    "flush": (MOD_WIN, VK_F7),
 }
 
 _MODIFIER_NAMES = (("Ctrl", MOD_CTRL), ("Alt", MOD_ALT), ("Shift", MOD_SHIFT), ("Win", MOD_WIN))
@@ -36,8 +38,13 @@ _LABEL_TO_VK = {**_OEM_KEYS, **_NAMED_KEYS,
 _VK_TO_LABEL = {vk: label for label, vk in _LABEL_TO_VK.items()}
 
 
+def default_label(name):
+    """The default key for an action as text, e.g. "Win+F10" (for hints in the CLI and Tk dashboard)."""
+    return format_binding(*DEFAULT_BINDINGS[name])
+
+
 def format_binding(mods, vk):
-    """(modifier mask, virtual key) -> "Ctrl+Shift+,"."""
+    """(modifier mask, virtual key) -> "Win+F8"."""
     label = _VK_TO_LABEL.get(vk)
     if label is None:
         raise ValueError(f"Unsupported key (code {vk:#x}).")
@@ -68,7 +75,7 @@ def _refusal(mods, vk):
 
 
 def parse_binding(spec):
-    """"Ctrl+Shift+," -> (modifier mask, virtual key). A global hotkey needs a modifier."""
+    """"Win+F8" -> (modifier mask, virtual key). A global hotkey needs a modifier."""
     parts = [p.strip() for p in str(spec).split("+")]
     if parts and parts[-1] == "" and len(parts) >= 2:  # "Ctrl++" would be a '+' key; not supported
         raise ValueError("Unsupported key.")

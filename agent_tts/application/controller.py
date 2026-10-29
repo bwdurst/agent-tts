@@ -62,7 +62,7 @@ class Controller:
         self._synth_thread.start()
 
     def register_hotkeys(self, bindings=None):
-        """Global hotkeys live as long as the window, so Ctrl+Shift+, can start listening.
+        """Global hotkeys live as long as the window, so a hotkey can start listening.
 
         Called by the window once its signal is connected, so an early error is not lost."""
         if not self.enable_hotkeys:

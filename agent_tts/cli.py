@@ -123,9 +123,9 @@ def _run_live(args, cfg) -> int:
 
     print(f"[live] tailing {jsonl_path.name}")
     print(f"[live] auto-switches to new sessions when detected")
-    print(f"[live] Ctrl+Shift+.  skip current block")
-    print(f"[live] Ctrl+Shift+/  flush queue")
-    print(f"[live] Ctrl+C        exit")
+    print(f"[live] {hotkeys.default_label('skip'):10s}  skip current block")
+    print(f"[live] {hotkeys.default_label('flush'):10s}  flush queue")
+    print(f"[live] {'Ctrl+C':10s}  exit")
 
     pq = player.PlayerQueue()
     stop_event = threading.Event()

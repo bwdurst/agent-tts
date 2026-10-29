@@ -102,7 +102,8 @@ class Dashboard:
 
         footer = tk.Frame(self.surface, bg=BG)
         footer.pack(side="bottom", fill="x", padx=18, pady=(0, 12), before=body)
-        tk.Label(footer, text="Hotkeys:  Ctrl+Shift+.  skip     Ctrl+Shift+/  flush",
+        tk.Label(footer, text=f"Hotkeys:  {hotkeys.default_label('skip')}  skip     "
+                              f"{hotkeys.default_label('flush')}  flush",
                  bg=BG, fg=FG_DIM, font=FONT_UI_SMALL).pack(side="left")
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)

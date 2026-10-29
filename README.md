@@ -64,14 +64,16 @@ Global hotkeys work in any application while the Qt dashboard is open (listening
 
 | Action | Default |
 | --- | --- |
-| Start listening | `Ctrl+Shift+,` |
-| Stop listening | `Ctrl+Shift+M` |
-| Skip the current line | `Ctrl+Shift+.` |
-| Clear queued speech | `Ctrl+Shift+/` |
+| Start listening | `Win+F8` |
+| Stop listening | `Win+F9` |
+| Skip the current line | `Win+F10` |
+| Clear queued speech | `Win+F7` |
 
 Press **Hotkeys…** to change them: click a field and press the combination you want (Backspace or Delete clears it, which turns that action's hotkey off). A combination needs Ctrl, Alt or Win (Shift alone is only allowed with an F-key), and the app refuses ones that would break normal use: standard shortcuts such as Ctrl+C, Ctrl+V, Ctrl+Z or Alt+F4, F12, and Ctrl+Alt plus a letter (AltGr on many keyboards). While the Hotkeys window is open your current hotkeys are paused, so you can capture a combination that is already assigned. Bindings are saved per Windows user in the app's settings, not in `voices.yaml`. If another program already owns a combination, the status line says which one so you can pick another. The CLI and the Tk dashboard keep the fixed skip and flush keys and have no start or stop hotkey.
 
-Because a registered hotkey is taken from every program while the dashboard is open, the defaults can clash with shortcuts you use: `Ctrl+Shift+M` is mute in Microsoft Teams and `Ctrl+Shift+,` shrinks the font in Word and Outlook. Those apps handle the keys themselves, so Windows gives them to Agent TTS without any warning. Rebind or clear any hotkey that gets in your way.
+A registered hotkey is taken from every program while the dashboard is open, which is why the defaults are Win-key combinations: Windows keeps most of those for itself, so applications such as Teams, Office and VS Code do not use them, while Ctrl, Shift and Alt combinations (for example `Ctrl+Shift+M`, mute in Teams) are what those applications use and would be silently taken. On a laptop whose function keys default to media controls you also need to hold Fn. If a combination is already taken the status line says so; rebind or clear any hotkey that gets in your way.
+
+If you saved hotkeys in an earlier version, they stay as you saved them. Press **Restore defaults** in the Hotkeys window to switch to the current defaults.
 
 Command line:
 

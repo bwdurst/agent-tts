@@ -8,12 +8,20 @@ import pytest
 from agent_tts import hotkeys
 
 
-def test_defaults_read_as_ctrl_shift_keys():
+def test_defaults_read_as_win_function_keys():
     assert {n: hotkeys.format_binding(*b) for n, b in hotkeys.DEFAULT_BINDINGS.items()} == {
-        "start": "Ctrl+Shift+,", "stop": "Ctrl+Shift+M", "skip": "Ctrl+Shift+.", "flush": "Ctrl+Shift+/"}
+        "start": "Win+F8", "stop": "Win+F9", "skip": "Win+F10", "flush": "Win+F7"}
 
 
-@pytest.mark.parametrize("spec", ["Ctrl+Shift+,", "Ctrl+Alt+F5", "Win+Up", "Alt+7", "Ctrl+Shift+Space", "Shift+F5"])
+def test_defaults_follow_their_own_rules_and_are_distinct():
+    for name, binding in hotkeys.DEFAULT_BINDINGS.items():
+        assert hotkeys.parse_binding(hotkeys.format_binding(*binding)) == binding, name
+        assert hotkeys.default_label(name) == hotkeys.format_binding(*binding)
+    assert len(set(hotkeys.DEFAULT_BINDINGS.values())) == len(hotkeys.DEFAULT_BINDINGS)
+    assert all(mods == hotkeys.MOD_WIN for mods, _ in hotkeys.DEFAULT_BINDINGS.values())
+
+
+@pytest.mark.parametrize("spec", ["Ctrl+Shift+,", "Win+F8", "Ctrl+Alt+F5", "Win+Up", "Alt+7", "Ctrl+Shift+Space", "Shift+F5"])
 def test_parse_and_format_round_trip(spec):
     assert hotkeys.format_binding(*hotkeys.parse_binding(spec)) == spec
 
@@ -81,4 +89,4 @@ def test_actions_without_a_handler_never_claim_their_keys(monkeypatch):
 def test_unavailable_key_is_reported_with_its_combination(monkeypatch):
     calls, errors = run_register(monkeypatch, fail=(3,), on_start=lambda: None)
     assert len(errors) == 1
-    assert "Start hotkey Ctrl+Shift+," in errors[0] and "Hotkeys" in errors[0]
+    assert "Start hotkey Win+F8" in errors[0] and "Hotkeys" in errors[0]
