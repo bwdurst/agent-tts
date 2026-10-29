@@ -220,3 +220,26 @@ def test_row_preview_uses_sorted_voice_without_assignment(window, monkeypatch):
     assert window.preview_button.isEnabled()
     assert not window.drafts.dirty
     assert "API credits" in window.preview_button.toolTip()
+
+
+def test_silent_checkbox_disables_voice_controls_and_saves_without_a_voice(window):
+    window.speaker.setCurrentText("KIRA")
+    assert window.voice_id.isEnabled() and window.test_button.isEnabled()
+    window.muted.setChecked(True)
+    assert not window.voice_id.isEnabled() and not window.test_button.isEnabled()
+    assert not window.editor_provider.isEnabled()
+    assert "KIRA" in window.drafts.dirty
+    window.voice_id.setEnabled(True)
+    window.voice_id.setText("")
+    window._edit_values()
+    window._save()
+    assert config.load(window.drafts.path).speakers["KIRA"].muted is True
+    window.muted.setChecked(False)
+    assert window.voice_id.isEnabled() and window.test_button.isEnabled()
+
+
+def test_hint_shown_when_no_provider_has_a_key(window, monkeypatch):
+    for var in ("XAI_API_KEY", "ELEVENLABS_API_KEY", "CARTESIA_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    window._update_key_hint()
+    assert "Providers" in window.status.text()

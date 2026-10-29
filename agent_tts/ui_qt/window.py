@@ -35,9 +35,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from agent_tts import credentials
 from agent_tts.application.controller import Controller
 from agent_tts.application.drafts import Drafts, FileChangedError
 from agent_tts.tts.factory import provider_class
+from agent_tts.ui_qt.providers_dialog import PROVIDER_LABELS, ProvidersDialog
 from agent_tts.ui_qt.voice_model import (
     COLUMNS,
     PreviewDelegate,
@@ -47,7 +49,6 @@ from agent_tts.ui_qt.voice_model import (
 )
 from agent_tts.voice_library import label_values
 
-PROVIDER_LABELS = {"xai": "xAI", "elevenlabs": "ElevenLabs", "cartesia": "Cartesia"}
 TEST_TEXT = "Testing, one, two, three. That's elegant. Wait, that's wrong. Let's see what you can do."
 
 
@@ -59,7 +60,7 @@ class Window(QMainWindow):
     def __init__(self, config_path, session=None, *, enable_hotkeys=True,
                  settings=None, controller_options=None):
         super().__init__()
-        self.setWindowTitle("Agent TTS — Qt rebuild")
+        self.setWindowTitle("Agent TTS")
         self.setMinimumSize(920, 700)
         self.resize(1180, 820)
         self.drafts = Drafts(config_path)
@@ -98,6 +99,11 @@ class Window(QMainWindow):
         title.setFont(font)
         controls.addWidget(title)
         controls.addStretch()
+        self.providers_button = QPushButton("Providers…")
+        self.providers_button.setMinimumHeight(32)
+        self.providers_button.setToolTip("Enter or remove API keys for xAI, ElevenLabs and Cartesia")
+        self.providers_button.clicked.connect(self._open_providers)
+        controls.addWidget(self.providers_button)
         self.start_button = QPushButton("Start listening")
         self.stop_button = QPushButton("Stop")
         self.skip_button = QPushButton("Skip")
@@ -159,6 +165,7 @@ class Window(QMainWindow):
         layout.addWidget(self.body_split, 1)
         self.setCentralWidget(root)
         self.statusBar().showMessage("Saved voices are used for live listening")
+        self._update_key_hint()
 
     def _build_editor(self):
         group = QGroupBox("Speaker settings")
@@ -175,6 +182,10 @@ class Window(QMainWindow):
         scroll.setFrameShape(QScrollArea.Shape.NoFrame)
         content = QWidget()
         form_box = QVBoxLayout(content)
+        self.muted = QCheckBox("Silent: do not speak this speaker")
+        self.muted.setToolTip("Its lines still appear in the transcript but are never sent to a provider")
+        self.muted.toggled.connect(self._muted_changed)
+        form_box.addWidget(self.muted)
         basic = QFormLayout()
         self.editor_provider = QComboBox()
         for key, label in PROVIDER_LABELS.items():
@@ -350,6 +361,7 @@ class Window(QMainWindow):
     def _load_editor(self, *_):
         self._loading_editor = True
         draft = self.drafts.speakers[self.speaker.currentText()]
+        self.muted.setChecked(draft.muted)
         self.editor_provider.setCurrentIndex(self.editor_provider.findData(draft.provider))
         self.voice_id.setText(draft.voice_id)
         while self.settings_form.rowCount():
@@ -381,7 +393,39 @@ class Window(QMainWindow):
             self.setting_controls[key] = control
             self.settings_form.addRow(key.replace("_", " ").title(), control)
         self._loading_editor = False
+        self._apply_muted_state()
         self._update_dirty()
+
+    def _muted_changed(self, checked):
+        if self._loading_editor:
+            return
+        self.drafts.speakers[self.speaker.currentText()].muted = checked
+        self._apply_muted_state()
+        self._update_dirty()
+
+    def _apply_muted_state(self):
+        """Grey out the voice controls for a silent speaker; values are kept for when it is unmuted."""
+        muted = self.muted.isChecked()
+        self.editor_provider.setEnabled(not muted)
+        self.voice_id.setEnabled(not muted)
+        for control in self.setting_controls.values():
+            control.setEnabled(not muted)
+        self.test_button.setEnabled(not muted and not self.controller.listening)
+
+    def _open_providers(self):
+        dialog = ProvidersDialog(self)
+        dialog.keys_changed.connect(self._keys_changed)
+        dialog.exec()
+        self._update_key_hint()
+
+    def _keys_changed(self, provider):
+        self.controller.catalogs.pop(provider, None)
+        if provider == self.provider:
+            self.controller.fetch_catalog(provider, refresh=True)
+
+    def _update_key_hint(self):
+        if not any(credentials.lookup(provider_class(p).env_var) for p in PROVIDER_LABELS):
+            self.status.setText("No provider is active. Press Providers… to add an API key.")
 
     def _edit_values(self, *_):
         if self._loading_editor:
@@ -587,7 +631,7 @@ class Window(QMainWindow):
             self.source.setEnabled(not data)
             self.progress_audio.setEnabled(not data)
             self.browse_session.setEnabled(not data)
-            self.test_button.setEnabled(not data)
+            self._apply_muted_state()
             tooltip = "Stop listening to audition." if data else "Play the current unsaved settings"
             self.test_button.setToolTip(tooltip)
             self.voice_model.listening = data

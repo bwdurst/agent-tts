@@ -15,6 +15,7 @@ class SpeakerConfig:
     provider: str
     voice_id: str
     settings: dict[str, Any]
+    muted: bool = False  # silent: never synthesized, so it needs no key or voice
 
 
 @dataclass
@@ -63,6 +64,8 @@ def save(cfg: "Config", path: str | Path = "voices.yaml") -> None:
             "voice_id": sc.voice_id,
             "settings": sc.settings,
         }
+        if sc.muted:
+            speakers[name]["muted"] = True
 
     data = {
         "provider": cfg.provider,
@@ -107,6 +110,7 @@ def load(path: str | Path = "voices.yaml") -> Config:
             provider=s.get("provider") or default_provider,
             voice_id=s["voice_id"],
             settings=s.get("settings", {}) or {},
+            muted=bool(s.get("muted", False)),
         )
         for name, s in data["speakers"].items()
     }

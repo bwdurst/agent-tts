@@ -34,7 +34,7 @@ def describe_error(provider: str, exc: Exception) -> str:
     env_var = PROVIDERS[provider].env_var if provider in PROVIDERS else "API key"
     text = str(exc)
     if isinstance(exc, RuntimeError) and "not set" in text:
-        return f"{label} is not set up. Add {env_var} to .env and restart the app."
+        return f"{label} is not set up. Add {env_var} in the Providers dialog (Qt dashboard) or in .env."
     if isinstance(exc, CatalogLimitError):
         return f"{label} returned a voice list that could not be loaded completely. Try again later."
     if isinstance(exc, requests.Timeout):

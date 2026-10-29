@@ -102,3 +102,16 @@ def test_default_speaker_required(tmp_path):
 def test_shipped_voices_yaml_loads():
     cfg = config.load("voices.example.yaml")
     assert cfg.speaker("_default").voice_id
+
+
+def test_muted_round_trips_and_is_omitted_when_false(tmp_path, make_cfg):
+    p = tmp_path / "voices.yaml"
+    cfg = make_cfg()
+    cfg.speakers["ROOK"].muted = True
+    config.save(cfg, p)
+    data = yaml.safe_load(p.read_text(encoding="utf-8"))
+    assert data["speakers"]["ROOK"]["muted"] is True
+    assert "muted" not in data["speakers"]["KIRA"]
+    back = config.load(p)
+    assert back.speakers["ROOK"].muted is True
+    assert back.speakers["KIRA"].muted is False

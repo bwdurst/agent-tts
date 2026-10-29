@@ -269,6 +269,8 @@ class Dashboard:
                         sp = self.cfg.speaker(b.speaker)
 
                     self.transcript_q.put(TranscriptEvent(b.speaker, b.text))
+                    if sp.muted:
+                        continue
                     self._update_status_speaking(b.speaker)
 
                     synth_text = normalize(b.text, b.speaker, self.cfg.pronunciations)

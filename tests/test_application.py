@@ -219,3 +219,44 @@ def test_listening_preview_preserves_queue_and_order(drafts):
         assert calls[0][0]=='First dialogue.' and calls[2][0]=='Next dialogue.'
     finally:
         release.set();c.close();c._synth_thread.join(1)
+
+
+def test_muted_speaker_is_shown_but_never_synthesized(drafts):
+    drafts.speakers["KIRA"].muted = True
+    drafts.save_speaker("KIRA")
+    synthesized, events = [], []
+
+    class Pool:
+        def __init__(self, cfg):
+            pass
+
+        def get(self, name):
+            return self
+
+        def synth(self, text, *args):
+            synthesized.append(text)
+            return Path(text + ".wav")
+
+    results = queue.Queue()
+    controller = Controller(drafts, results.put, lambda *args: events.append(args), enable_hotkeys=False,
+                            player_factory=FakePlayer, pool_factory=Pool)
+    try:
+        controller._submit_text("KIRA: Quiet one.\n\nROOK: Loud one.")
+        pump(controller, results, lambda: bool(controller._player.items))
+        assert synthesized == ["Loud one."]
+        assert [e[1][0] for e in events if e[0] == "transcript"] == ["KIRA", "ROOK"]
+        controller.test_speaker("KIRA", "test")
+        assert ("log", "KIRA is muted") in events
+        assert synthesized == ["Loud one."]
+    finally:
+        controller.close()
+        controller._synth_thread.join(1)
+
+
+def test_a_muted_speaker_can_be_saved_without_a_voice(drafts):
+    drafts.speakers["KIRA"].voice_id = ""
+    with pytest.raises(ValueError):
+        drafts.save_speaker("KIRA")
+    drafts.speakers["KIRA"].muted = True
+    drafts.save_speaker("KIRA")
+    assert config.load(drafts.path).speakers["KIRA"].muted is True

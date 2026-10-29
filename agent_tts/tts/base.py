@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from agent_tts import credentials
 from agent_tts.tts import cache
 
 PLACEHOLDER_VOICE = "TODO_PICK_VOICE"
@@ -128,10 +129,10 @@ class Provider(ABC):
 
     @classmethod
     def from_env(cls, *args, **kwargs) -> "Provider":
-        key = os.environ.get(cls.env_var)
-        if not key:
-            raise RuntimeError(f"{cls.env_var} not set (check .env)")
-        return cls(key, *args, **kwargs)
+        found = credentials.lookup(cls.env_var)
+        if not found:
+            raise RuntimeError(f"{cls.env_var} not set. Add the key in the Qt dashboard's Providers dialog, or set it in .env.")
+        return cls(found[0], *args, **kwargs)
 
     def _codec_for(self, output_format: str) -> str:
         # Accepts "mp3", "wav", and legacy ElevenLabs strings like

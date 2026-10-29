@@ -41,7 +41,7 @@ class Drafts:
 
     def save_speaker(self, name):
         draft = deepcopy(self.speakers[name])
-        if not draft.voice_id.strip() or draft.voice_id == PLACEHOLDER_VOICE:
+        if not draft.muted and (not draft.voice_id.strip() or draft.voice_id == PLACEHOLDER_VOICE):
             raise ValueError("Assign a voice before saving this speaker.")
         schema = provider_class(draft.provider).settings_schema
         # Preserve existing unknown provider settings, but validate visible values.

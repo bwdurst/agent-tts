@@ -35,6 +35,9 @@ def _play_blocks(blocks: list[Block], cfg, pool, pq=None) -> None:
         else:
             sp = cfg.speaker(b.speaker)
 
+        if sp.muted:
+            print(f"  {b.speaker:10s} | (muted)")
+            continue
         label = b.speaker
         preview = b.text[:60].replace("\n", " ")
         print(f"  {label:10s} | {preview}", flush=True)

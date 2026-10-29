@@ -19,16 +19,24 @@ git clone https://github.com/bwdurst/agent-tts.git
 cd agent-tts
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-qt.txt
-copy .env.example .env
 ```
 
-Put a key in `.env` for each provider you plan to use. Only providers assigned in `voices.yaml` need one. On first run the app copies `voices.example.yaml` to `voices.yaml`, which is gitignored; the app only ever rewrites that copy.
+Then add a key for each provider you plan to use (see [API keys](#api-keys)). Only providers assigned in `voices.yaml` need one. On first run the app copies `voices.example.yaml` to `voices.yaml`, which is gitignored; the app only ever rewrites that copy.
 
 | Provider | Variable | Notes |
 | --- | --- | --- |
 | xAI | `XAI_API_KEY` | Default provider in the shipped `voices.example.yaml`. |
 | ElevenLabs | `ELEVENLABS_API_KEY` | Needs `text_to_speech`; add `voices_read` to browse voices in the dashboard. |
 | Cartesia | `CARTESIA_API_KEY` | |
+
+## API keys
+
+In the Qt dashboard press **Providers…**, paste a key into the provider's row, and press **Save and test**. The app saves the key, asks the provider for its voice list to confirm it works, and clears the field; the key is never shown again. **Remove** deletes the saved key.
+
+- **Where keys live:** Windows Credential Manager (service name `agent-tts`), not `voices.yaml`, `.env`, or anything in this folder. Credential Manager is per Windows user, so any program running as you can read it, the same as a `.env` file you own.
+- **Precedence:** a key saved in the app is used instead of one from the environment. If no key is saved, the app falls back to the environment variable, including one loaded from `.env` (`XAI_API_KEY`, `ELEVENLABS_API_KEY`, `CARTESIA_API_KEY`; see `.env.example`). The dialog shows which source is active.
+- **Tk dashboard:** it has no key dialog. It still reads keys saved by the Qt dashboard and from `.env`.
+- **ElevenLabs:** the check lists voices, which needs the `voices_read` permission. A key limited to `text_to_speech` is reported as failing the check even though speech works.
 
 Never commit `.env`. It is in `.gitignore`.
 
@@ -82,6 +90,7 @@ Claude transcripts are read from `~/.claude/projects`. Codex rollouts are read f
 - Text with no prefix is skipped when the reply contains any prefix.
 - Code blocks and tool output are not voiced by default (`code_blocks: skip`).
 - Markdown blockquotes (`>`) are treated as written asides and are not voiced by default (`aside_blocks: skip`). Put detail you want to read but not hear there.
+- To silence one speaker, tick **Silent** in its settings (or set `muted: true` under it in `voices.yaml`). Its lines still appear in the transcript but are never synthesized, so a silent speaker needs no key and no voice, and the other speakers are unaffected.
 - The speakers listed in `voices.yaml` (other than `_default`) are the names the parser recognizes, so adding a speaker there is all it takes. The shipped file lists `KIRA`, `TANIS`, `CADE`, `ROOK`, `SAGE`, `VEX`, and `NARRATOR`. A prefix that is not listed is treated as ordinary text.
 
 ## Configuring voices
@@ -126,7 +135,7 @@ The suite runs without network access and needs no `voices.yaml`. It does not co
 ## Troubleshooting
 
 - **No sound, no error.** The speaker's voice id is probably stale; provider catalogs change. Re-pick a voice with **Browse** and Save.
-- **`..._API_KEY not set`.** The speaker's provider has no key in `.env`.
+- **`..._API_KEY not set`.** The speaker's provider has no key. Add one under **Providers…** or in `.env`, or tick **Silent** if that speaker should not be voiced.
 - **ElevenLabs shows 401 in the voice browser.** The key lacks `voices_read`. Synthesis works with `text_to_speech` alone.
 - **Filler words ("em", "hmm") before lines.** `lead_in_text` in `voices.yaml` is non-empty. Set it to `''`.
 - **A hotkey does nothing.** Another application owns it. Use the buttons.

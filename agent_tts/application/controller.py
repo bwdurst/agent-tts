@@ -177,11 +177,16 @@ class Controller:
             if block.speaker == parser.ASIDE and cfg.aside_blocks == "skip":
                 continue
             self.notify("transcript", (block.speaker, block.text))
+            if cfg.speaker(block.speaker).muted:
+                continue
             self._jobs.put((self.session_gen, "synth", cfg, block.speaker,
                             deepcopy(cfg.speaker(block.speaker)), block.text))
 
     def test_speaker(self, name, text):
         if self.listening:
+            return
+        if self.drafts.speakers[name].muted:
+            self.notify("log", f"{name} is muted")
             return
         self.flush()
         cfg = deepcopy(self.drafts.saved)

@@ -63,6 +63,6 @@ class ProviderPool:
         """Build the adapter for every provider in use so a missing key or
         bad output_format surfaces before playback starts. Raises
         RuntimeError or ValueError."""
-        used = {s.provider for s in (speakers or self.cfg.speakers.values())}
+        used = {s.provider for s in (speakers or self.cfg.speakers.values()) if not s.muted}
         for name in sorted(used):
             self.get(name)
