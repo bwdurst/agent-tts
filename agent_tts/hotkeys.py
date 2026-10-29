@@ -9,8 +9,59 @@ _kernel32 = ctypes.WinDLL("kernel32")
 _user32.PostThreadMessageW.argtypes = [wintypes.DWORD, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM]
 _user32.GetMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT]
 _user32.PeekMessageW.argtypes = [ctypes.POINTER(wintypes.MSG), wintypes.HWND, wintypes.UINT, wintypes.UINT, wintypes.UINT]
-MOD_CTRL, MOD_SHIFT, MOD_NOREPEAT = 0x0002, 0x0004, 0x4000
-VK_PERIOD, VK_SLASH = 0xBE, 0xBF
+MOD_ALT, MOD_CTRL, MOD_SHIFT, MOD_WIN, MOD_NOREPEAT = 0x0001, 0x0002, 0x0004, 0x0008, 0x4000
+VK_COMMA, VK_PERIOD, VK_SLASH, VK_M = 0xBC, 0xBE, 0xBF, 0x4D
+VK_BACKSPACE, VK_DELETE = 0x08, 0x2E
+# (name, registration id, label). Only actions with a handler are registered,
+# so a caller that has no start/stop (the CLI and the Tk dashboard) never
+# claims those keys.
+HOTKEYS = (("start", 3, "Start"), ("stop", 4, "Stop"), ("skip", 1, "Skip"), ("flush", 2, "Flush"))
+# Ctrl+Shift+ key. M , . / sit side by side: stop, start, skip, flush.
+DEFAULT_BINDINGS = {
+    "start": (MOD_CTRL | MOD_SHIFT, VK_COMMA),
+    "stop": (MOD_CTRL | MOD_SHIFT, VK_M),
+    "skip": (MOD_CTRL | MOD_SHIFT, VK_PERIOD),
+    "flush": (MOD_CTRL | MOD_SHIFT, VK_SLASH),
+}
+
+_MODIFIER_NAMES = (("Ctrl", MOD_CTRL), ("Alt", MOD_ALT), ("Shift", MOD_SHIFT), ("Win", MOD_WIN))
+_OEM_KEYS = {",": 0xBC, ".": 0xBE, "/": 0xBF, ";": 0xBA, "=": 0xBB, "-": 0xBD, "`": 0xC0,
+             "[": 0xDB, "\\": 0xDC, "]": 0xDD, "'": 0xDE}
+_NAMED_KEYS = {"Space": 0x20, "Enter": 0x0D, "Backspace": 0x08, "Insert": 0x2D, "Delete": 0x2E,
+               "Home": 0x24, "End": 0x23, "PageUp": 0x21, "PageDown": 0x22,
+               "Left": 0x25, "Up": 0x26, "Right": 0x27, "Down": 0x28}
+_LABEL_TO_VK = {**_OEM_KEYS, **_NAMED_KEYS,
+                **{chr(c): c for c in range(0x30, 0x3A)}, **{chr(c): c for c in range(0x41, 0x5B)},
+                **{f"F{n}": 0x70 + n - 1 for n in range(1, 25)}}
+_VK_TO_LABEL = {vk: label for label, vk in _LABEL_TO_VK.items()}
+
+
+def format_binding(mods, vk):
+    """(modifier mask, virtual key) -> "Ctrl+Shift+,"."""
+    label = _VK_TO_LABEL.get(vk)
+    if label is None:
+        raise ValueError(f"Unsupported key (code {vk:#x}).")
+    return "+".join([name for name, bit in _MODIFIER_NAMES if mods & bit] + [label])
+
+
+def parse_binding(spec):
+    """"Ctrl+Shift+," -> (modifier mask, virtual key). A global hotkey needs a modifier."""
+    parts = [p.strip() for p in str(spec).split("+")]
+    if parts and parts[-1] == "" and len(parts) >= 2:  # "Ctrl++" would be a '+' key; not supported
+        raise ValueError("Unsupported key.")
+    *names, key = parts
+    mods = 0
+    for name in names:
+        bit = dict(_MODIFIER_NAMES).get(name)
+        if bit is None:
+            raise ValueError(f"Unknown modifier {name!r}.")
+        mods |= bit
+    vk = _LABEL_TO_VK.get(key)
+    if vk is None:
+        raise ValueError(f"Unsupported key {key!r}.")
+    if not mods:
+        raise ValueError("Include Ctrl, Alt, Shift or Win so the key does not steal normal typing.")
+    return mods, vk
 WM_QUIT, WM_HOTKEY = 0x0012, 0x0312
 _thread = None
 _thread_id = None
@@ -18,30 +69,40 @@ _stop_event = threading.Event()
 _lock = threading.Lock()
 
 
-def register(on_skip, on_flush, on_error=None):
-    """Start once. Callbacks execute on the worker; GUI callers must emit signals."""
+def register(on_skip, on_flush, on_error=None, *, on_start=None, on_stop=None, bindings=None):
+    """Start once. Callbacks execute on the worker; GUI callers must emit signals.
+
+    `bindings` maps an action name to (modifiers, key) or None to leave it unbound;
+    missing names use DEFAULT_BINDINGS."""
     global _thread
+    handlers = {"skip": on_skip, "flush": on_flush, "start": on_start, "stop": on_stop}
     with _lock:
         if _thread is not None and _thread.is_alive():
             raise RuntimeError("Hotkey thread is still running")
         _stop_event.clear()
-        _thread = threading.Thread(target=_run, args=(on_skip, on_flush, on_error),
+        _thread = threading.Thread(target=_run, args=({k: v for k, v in handlers.items() if v}, on_error, {**DEFAULT_BINDINGS, **(bindings or {})}),
                                    daemon=True, name="tts-hotkeys")
         _thread.start()
 
 
-def _run(on_skip, on_flush, on_error):
+def _run(handlers, on_error, bindings):
     global _thread_id
     msg = wintypes.MSG()
     _user32.PeekMessageW(ctypes.byref(msg), None, 0, 0, 0)
     _thread_id = _kernel32.GetCurrentThreadId()
     registered = []
     try:
-        for ident, key, label in ((1, VK_PERIOD, "Skip"), (2, VK_SLASH, "Flush")):
-            if _user32.RegisterHotKey(None, ident, MOD_CTRL | MOD_SHIFT | MOD_NOREPEAT, key):
+        callbacks = {}
+        for name, ident, label in HOTKEYS:
+            if name not in handlers or bindings.get(name) is None:
+                continue
+            mods, key = bindings[name]
+            callbacks[ident] = handlers[name]
+            if _user32.RegisterHotKey(None, ident, mods | MOD_NOREPEAT, key):
                 registered.append(ident)
             else:
-                message = f"{label} hotkey unavailable; another app may own it. Use the button."
+                message = (f"{label} hotkey {format_binding(mods, key)} is unavailable; "
+                           "another app may own it. Change it under Hotkeys… or use the button.")
                 logging.getLogger(__name__).warning(message)
                 if on_error:
                     on_error(message)
@@ -49,7 +110,7 @@ def _run(on_skip, on_flush, on_error):
             if _user32.GetMessageW(ctypes.byref(msg), None, 0, 0) <= 0:
                 break
             if msg.message == WM_HOTKEY:
-                callback = {1: on_skip, 2: on_flush}.get(msg.wParam)
+                callback = callbacks.get(msg.wParam)
                 if callback:
                     callback()
     finally:

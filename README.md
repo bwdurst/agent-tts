@@ -58,7 +58,18 @@ The original Tkinter dashboard (Claude input only) needs only `requirements.txt`
 
 In the dashboard, choose a listener source, press **Start**, and talk to your agent. Its next reply is spoken once it lands in the transcript. Browse the provider voice libraries, preview a voice, assign it to a speaker, then **Save**. Saving writes `voices.yaml`.
 
-Keyboard, while listening: `Ctrl+Shift+.` skips the current clip and `Ctrl+Shift+/` flushes everything queued.
+### Hotkeys
+
+Global hotkeys work in any application while the Qt dashboard is open (listening or not):
+
+| Action | Default |
+| --- | --- |
+| Start listening | `Ctrl+Shift+,` |
+| Stop listening | `Ctrl+Shift+M` |
+| Skip the current line | `Ctrl+Shift+.` |
+| Clear queued speech | `Ctrl+Shift+/` |
+
+Press **Hotkeys…** to change them: click a field and press the combination you want (Backspace or Delete clears it, which turns that action's hotkey off). A combination needs Ctrl, Alt, Shift or Win. Bindings are saved per Windows user in the app's settings, not in `voices.yaml`. If another program already owns a combination, the status line says which one so you can pick another. The CLI and the Tk dashboard keep the fixed skip and flush keys and have no start or stop hotkey.
 
 Command line:
 
@@ -140,7 +151,7 @@ The suite runs without network access and needs no `voices.yaml`. It does not co
 - **`..._API_KEY not set`.** The speaker's provider has no key. Add one under **Providers…** or in `.env`, or tick **Silent** if that speaker should not be voiced.
 - **ElevenLabs shows 401 in the voice browser.** The key lacks `voices_read`. Synthesis works with `text_to_speech` alone.
 - **Filler words ("em", "hmm") before lines.** `lead_in_text` in `voices.yaml` is non-empty. Set it to `''`.
-- **A hotkey does nothing.** Another application owns it. Use the buttons.
+- **A hotkey does nothing.** Another application probably owns it; the status line reports this when the app starts or after you save. Choose a different combination under **Hotkeys…**, or use the buttons.
 
 ## Platform and scope
 

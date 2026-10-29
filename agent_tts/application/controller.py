@@ -61,6 +61,29 @@ class Controller:
         self._synth_thread = threading.Thread(target=self._audio_loop, daemon=True, name="tts-synthesis")
         self._synth_thread.start()
 
+    def register_hotkeys(self, bindings=None):
+        """Global hotkeys live as long as the window, so Ctrl+Shift+, can start listening.
+
+        Called by the window once its signal is connected, so an early error is not lost."""
+        if not self.enable_hotkeys:
+            return
+        def pressed(name):
+            return lambda: self._emit(Result(self.session_gen, "hotkey", name))
+
+        try:
+            hotkeys.register(pressed("skip"), pressed("flush"),
+                             lambda message: self._emit(Result(self.session_gen, "error", message)),
+                             on_start=pressed("start"), on_stop=pressed("stop"), bindings=bindings)
+        except RuntimeError as exc:
+            self._emit(Result(self.session_gen, "error", str(exc)))
+
+    def rebind_hotkeys(self, bindings):
+        """Apply new key bindings now (UI thread). The old registrations are released first."""
+        if not self.enable_hotkeys:
+            return
+        hotkeys.unregister()
+        self.register_hotkeys(bindings)
+
     def _emit(self, result):
         if not self.closed:
             self.post(result)
@@ -103,7 +126,12 @@ class Controller:
                 self.stop()
                 self.notify("error", data)
             elif kind == "hotkey":
-                self.skip() if data == "skip" else self.flush()
+                if data == "skip":
+                    self.skip()
+                elif data == "flush":
+                    self.flush()
+                else:
+                    self.notify("hotkey", data)  # start/stop need the window's source and session choices
             else:
                 self.notify(kind, data)
         finally:
@@ -119,14 +147,6 @@ class Controller:
         stop = self._stop
         cfg = deepcopy(self.drafts.saved)
         gen = self.session_gen
-        if self.enable_hotkeys:
-            try:
-                hotkeys.register(
-                    lambda: self._emit(Result(self.session_gen, "hotkey", "skip")),
-                    lambda: self._emit(Result(self.session_gen, "hotkey", "flush")),
-                    lambda message: self._emit(Result(gen, "error", message)))
-            except RuntimeError as exc:
-                self.notify("error", str(exc))
         self.notify("state", True)
         self.notify("status", "Finding session…")
 
@@ -163,8 +183,6 @@ class Controller:
         self._stop.set()
         self.listening = False
         self.flush()
-        if self.enable_hotkeys:
-            hotkeys.unregister()
         self.notify("state", False)
         self.notify("status", "Stopped")
 

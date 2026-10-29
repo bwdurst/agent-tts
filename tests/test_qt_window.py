@@ -253,3 +253,64 @@ def test_hint_clears_once_a_provider_is_active(window, monkeypatch):
     monkeypatch.setenv("CARTESIA_API_KEY", "x")
     window._update_key_hint()
     assert "Providers" not in window.status.text()
+
+
+def test_hotkey_press_starts_and_stops_through_the_buttons(window, monkeypatch):
+    calls = []
+    monkeypatch.setattr(window.controller, "start", lambda *a, **k: calls.append("start"))
+    window.stop_button.clicked.connect(lambda: calls.append("stop"))  # the button is wired to the real stop
+    window._notify("hotkey", "stop")  # Stop is disabled while idle, so it does nothing
+    assert calls == []
+    window._notify("hotkey", "start")
+    assert calls == ["start"]
+    window._notify("state", True)
+    window._notify("hotkey", "start")  # already listening
+    window._notify("hotkey", "stop")
+    assert calls == ["start", "stop"]
+    window._notify("state", False)
+
+
+def test_changing_hotkeys_saves_rebinds_and_updates_tooltips(window, monkeypatch):
+    from agent_tts import hotkeys
+
+    rebound = []
+    monkeypatch.setattr(window.controller, "rebind_hotkeys", rebound.append)
+    bindings = {**hotkeys.DEFAULT_BINDINGS, "start": hotkeys.parse_binding("Ctrl+Alt+F5"), "stop": None}
+    window._set_hotkeys(bindings)
+    assert rebound == [bindings]
+    assert window.settings.value("hotkey/start") == "Ctrl+Alt+F5" and window.settings.value("hotkey/stop") == ""
+    assert window.start_button.toolTip().endswith("Ctrl+Alt+F5")
+    assert window.stop_button.toolTip().endswith("Not set")
+    assert window.hotkeys_button.isEnabled()
+
+
+def test_transcript_colors_speakers_and_shows_text_literally(window):
+    from agent_tts.ui_qt.theme import DANGER, SPEAKER_COLORS
+
+    window._notify("transcript", ("KIRA", "<b>bold</b> & more"))
+    window._notify("transcript", ("NARRATOR", "plain"))
+    plain = window.transcript.toPlainText()
+    assert "KIRA: <b>bold</b> & more" in plain  # markup in dialogue is displayed, never interpreted
+    html = window.transcript.document().toHtml().lower()
+    assert SPEAKER_COLORS["KIRA"] in html
+    window._notify("error", "Provider returned HTTP 401.")
+    assert DANGER in window.transcript.document().toHtml().lower()
+    assert "[error] Provider returned HTTP 401." in window.transcript.toPlainText()
+
+
+def test_status_line_is_green_while_listening_and_red_for_errors(window):
+    from agent_tts.ui_qt.theme import DANGER, OK
+
+    window.status.setText("Listening — waiting for dialogue")
+    assert OK in window.status.styleSheet()
+    window.status.setText("Ready")
+    assert window.status.styleSheet() == ""
+    window._notify("error", "Something failed")
+    assert DANGER in window.status.styleSheet()
+    window._notify("status", "Ready")
+    assert window.status.styleSheet() == ""
+
+
+def test_start_is_the_primary_button_and_stop_only_stands_out_while_listening(window):
+    assert window.start_button.objectName() == "primary" and window.stop_button.objectName() == "stopButton"
+    assert "primary" in window.styleSheet() and not window.stop_button.isEnabled()

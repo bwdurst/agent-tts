@@ -1,4 +1,6 @@
 """Standard Qt widgets, model-based voice rows, and a queued worker bridge."""
+import html
+
 from PySide6.QtCore import (
     QObject,
     QSettings,
@@ -39,7 +41,9 @@ from agent_tts import credentials
 from agent_tts.application.controller import Controller
 from agent_tts.application.drafts import Drafts, FileChangedError
 from agent_tts.tts.factory import provider_class
+from agent_tts.ui_qt.hotkeys_dialog import HotkeysDialog, describe, load_bindings, save_bindings
 from agent_tts.ui_qt.providers_dialog import PROVIDER_LABELS, ProvidersDialog
+from agent_tts.ui_qt.theme import DANGER, MUTED, OK, STYLE, speaker_color
 from agent_tts.ui_qt.voice_model import (
     COLUMNS,
     PreviewDelegate,
@@ -57,6 +61,17 @@ class Bridge(QObject):
     result = Signal(object)
 
 
+class StatusLabel(QLabel):
+    """Status line tinted by what it says: green while listening or speaking, red for an error."""
+
+    def setText(self, text, tone=None):
+        if tone is None and text.startswith(("Listening", "Speaking")):
+            tone = "ok"
+        color = {"ok": OK, "error": DANGER}.get(tone)
+        self.setStyleSheet(f"color: {color};" if color else "")
+        super().setText(text)
+
+
 class Window(QMainWindow):
     def __init__(self, config_path, session=None, *, enable_hotkeys=True,
                  settings=None, controller_options=None):
@@ -66,6 +81,7 @@ class Window(QMainWindow):
         self.resize(1180, 820)
         self.drafts = Drafts(config_path)
         self.settings = settings or QSettings("AgentTTS", "QtCandidate")
+        self.hotkey_bindings = load_bindings(self.settings)
         self._loading_editor = False
         self._filters = {}
         self._catalogs = {}
@@ -81,6 +97,7 @@ class Window(QMainWindow):
         self._build(session)
         self._load_editor()
         self._restore_layout()
+        self.controller.register_hotkeys(self.hotkey_bindings)
         QTimer.singleShot(0, lambda: self.controller.fetch_catalog(self.provider))
 
     @Slot(object)
@@ -105,8 +122,16 @@ class Window(QMainWindow):
         self.providers_button.setToolTip("Enter or remove API keys for xAI, ElevenLabs and Cartesia")
         self.providers_button.clicked.connect(self._open_providers)
         controls.addWidget(self.providers_button)
+        self.hotkeys_button = QPushButton("Hotkeys…")
+        self.hotkeys_button.setMinimumHeight(32)
+        self.hotkeys_button.setToolTip("View or change the global hotkeys")
+        self.hotkeys_button.clicked.connect(self._open_hotkeys)
+        controls.addWidget(self.hotkeys_button)
         self.start_button = QPushButton("Start listening")
+        self.start_button.setObjectName("primary")
         self.stop_button = QPushButton("Stop")
+        self.stop_button.setObjectName("stopButton")
+        self.setStyleSheet(STYLE)
         self.skip_button = QPushButton("Skip")
         self.flush_button = QPushButton("Flush")
         for button in (self.start_button, self.stop_button, self.skip_button, self.flush_button):
@@ -116,8 +141,7 @@ class Window(QMainWindow):
         self.stop_button.clicked.connect(self.controller.stop)
         self.skip_button.clicked.connect(self.controller.skip)
         self.flush_button.clicked.connect(self.controller.flush)
-        self.skip_button.setToolTip("Skip current audio — Ctrl+Shift+.")
-        self.flush_button.setToolTip("Discard queued and in-flight audio — Ctrl+Shift+/")
+        self._show_hotkey_tooltips()
         self.stop_button.setEnabled(False)
         layout.addLayout(controls)
         source = QHBoxLayout()
@@ -138,7 +162,7 @@ class Window(QMainWindow):
         source.addWidget(self.session, 1)
         source.addWidget(self.browse_session)
         layout.addLayout(source)
-        self.status = QLabel("Ready — choose a voice or start listening")
+        self.status = StatusLabel("Ready — choose a voice or start listening")
         self.status.setTextFormat(Qt.TextFormat.PlainText)
         layout.addWidget(self.status)
 
@@ -422,6 +446,26 @@ class Window(QMainWindow):
         dialog.deleteLater()
         self._update_key_hint()
 
+    def _show_hotkey_tooltips(self):
+        keys = {name: describe(binding) for name, binding in self.hotkey_bindings.items()}
+        self.start_button.setToolTip(f"Start listening — {keys['start']}")
+        self.stop_button.setToolTip(f"Stop listening — {keys['stop']}")
+        self.skip_button.setToolTip(f"Skip current audio — {keys['skip']}")
+        self.flush_button.setToolTip(f"Discard queued and in-flight audio — {keys['flush']}")
+
+    def _open_hotkeys(self):
+        dialog = HotkeysDialog(self.hotkey_bindings, self)
+        if dialog.exec():
+            self._set_hotkeys(dialog.bindings)
+        dialog.deleteLater()
+
+    def _set_hotkeys(self, bindings):
+        self.hotkey_bindings = bindings
+        save_bindings(self.settings, bindings)
+        self._show_hotkey_tooltips()
+        self.controller.rebind_hotkeys(bindings)
+        self.statusBar().showMessage("Hotkeys updated", 5000)
+
     def _keys_changed(self, provider):
         self.controller.key_changed(provider, refetch=provider == self.provider)
 
@@ -625,6 +669,15 @@ class Window(QMainWindow):
         if path:
             self.session.setText(path)
 
+    @staticmethod
+    def _body(text):
+        """Escape text for the transcript, keeping its line breaks."""
+        return html.escape(str(text)).replace("\n", "<br>")
+
+    def _append_transcript(self, markup):
+        self.transcript.appendHtml(markup)
+        self.transcript.appendPlainText("")  # a blank line between entries
+
     def _notify(self, kind, data):
         if kind == "state":
             if data:
@@ -641,6 +694,10 @@ class Window(QMainWindow):
             self.voice_model.listening = data
             self.voice_list.viewport().update()
             self._selection_changed()
+        elif kind == "hotkey":
+            button = self.start_button if data == "start" else self.stop_button
+            if button.isEnabled():
+                button.click()
         elif kind == "status":
             self.status.setText(data)
         elif kind == "session":
@@ -652,17 +709,19 @@ class Window(QMainWindow):
             self.statusBar().showMessage("Following: " + " | ".join(self._followed_sessions))
             self.statusBar().setToolTip(details)
         elif kind == "transcript":
-            self.transcript.appendPlainText(f"{data[0]}: {data[1]}\n")
+            self._append_transcript(f'<span style="color:{speaker_color(data[0])}; font-weight:600">'
+                                    f'{html.escape(data[0])}:</span> {self._body(data[1])}')
         elif kind in ("error", "log"):
-            self.transcript.appendPlainText(f"[{kind}] {data}\n")
+            color = DANGER if kind == "error" else MUTED
+            self._append_transcript(f'<span style="color:{color}">[{kind}] {self._body(data)}</span>')
             if kind == "error":
-                self.status.setText(data)
+                self.status.setText(data, "error")
         elif kind == "player":
             event, name = data
             if event == "playing":
                 self.status.setText(f"Speaking — {name}")
             elif event == "error":
-                self.transcript.appendPlainText("[error] Audio playback failed. See the application log.")
+                self._append_transcript(f'<span style="color:{DANGER}">[error] Audio playback failed. See the application log.</span>')
             else:
                 self.status.setText("Listening — waiting for dialogue" if self.controller.listening else "Ready")
         elif kind == "catalog_loading":
