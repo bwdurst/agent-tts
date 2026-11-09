@@ -2,6 +2,14 @@
 
 A Windows app that reads AI coding agents' replies aloud, one voice per agent.
 
+## At a glance
+
+- **Does:** speaks agent replies aloud, one voice per agent, by watching Claude Code and Codex transcripts for lines that start with `NAME:`.
+- **Install:** clone and set up a Python virtual environment (see [Install](#install)). This is a desktop app, not a skill or plugin.
+- **Needs:** Windows 10 or 11, Python 3.14, and an API key from xAI, ElevenLabs or Cartesia. Speech is billed by the provider.
+- **Reads:** local Claude Code and Codex transcript files.
+- **Sends:** only the `NAME:` lines it is about to speak, to the speech provider you assign to that speaker. Keys are stored in Windows Credential Manager.
+
 It watches the local transcript files that Claude Code and Codex write, picks out lines that start with an agent's name in capitals (`KIRA: ...`), and speaks each one through xAI, ElevenLabs, or Cartesia. Each speaker can use a different provider and voice. A dashboard lets you assign voices, preview them, and tune per-speaker settings.
 
 Agent TTS does not depend on any particular set of agents. Anything that begins its spoken lines with `NAME: ` can be voiced. The reusable team it was built alongside is [agent-team](https://github.com/bwdurst/agent-team), whose personas use exactly this prefix convention.
